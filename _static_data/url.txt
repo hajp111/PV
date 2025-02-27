@@ -1,0 +1,4 @@
+https://kalkulator.tzb-info.cz/cz/vyvoj-cen-regulovanych-slozek-elektricke-energie
+
+sanity check (celkove ceny elektriny)
+https://kalkulator.tzb-info.cz/cz/vyvoj-celkovych-cen-elektriny?sazba=D02d&period=all

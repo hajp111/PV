@@ -1,0 +1,554 @@
+source("electricity_price.R")
+plot_charts == FALSE
+
+#### prepare data #### 
+# read electricity prices from file
+elprice_czk <- my_data_read_elprice_observed_data()
+
+# read distribution_costs - actual observation data - from file
+distribution_costs <- my_data_read_distrib_costs_observed_data()
+
+if (plot_charts) {
+  distribution_costs %>% ggplot(aes(x = year, y = grid_cost)) +
+    geom_line() +
+    geom_smooth(method = "loess" # Explicitly use loess
+                , se = FALSE
+                # , span = 3/ nrow(distribution_costs) #0.05,  # Adjust span for rolling average window
+                #, n = nrow(distribution_costs)  #n is crucial for loess to work correctly with date)
+    )+
+    labs(
+      title = "Development of Grid Cost",
+      x = "Year",
+      y = "CZK / kWh"
+    ) + scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+    theme_minimal() +
+    theme(legend.position = "none")  # Remove the legend
+  
+  my_ggsave("gfx/elprice/00_grid_cost_by_year.png")
+}
+
+# generate dataset for distribution/grid costs - based on observed data - in hourly frequency
+
+grid_cost <- my_gridcost(df = my_data_read_distrib_costs_observed_data()
+                         , startdate = '2022-01-01'
+                         , years = 3
+                         , annual_growth = 0 #0.005
+                         , method = "last_w_growth" # "last_w_growth"
+                         , orig_data_where_available = TRUE
+)
+# grid_cost <- my_gridcost(df = distribution_costs
+#                              , startdate = '2022-01-01'
+#                              , years = 30
+#                              , annual_growth = 0.04
+#                              , method = "linear" # "last_w_growth"
+#                              , orig_data_where_available = TRUE
+# )
+grid_cost$plot
+grid_cost_data <- grid_cost$grid_cost #hourly data only
+save( x= grid_cost_data, file = "_cache/grid_cost.Rdata")
+
+# generate dataset for feed in tariff in hourly frequency
+feed_in <- my_feed_in( years = 3
+                       , annual_growth = 0 # -0.05
+                       , startdate = '2022-01-01'
+                       , method = "last_w_growth" 
+                       , fixed_seed = TRUE
+                       , lastval = 1.1 #last value of price in kWh 
+)
+feed_in$plot
+feed_in_data <- feed_in$feed_in
+save( x= feed_in_data, file = "_cache/feed_in_price.Rdata")
+
+
+# static forecast
+elprice <- my_elprice(df = my_data_read_elprice_observed_data()
+                         , startdate = '2022-01-01'
+                         , years = 2
+                         , annual_growth = 0.04
+                         , method ="static"
+                         , add_intraday_variability = FALSE
+                         , add_intraweek_variability = FALSE) 
+save(elprice , file = "_cache/elprice_static.Rdata")
+
+
+# # static forecast - with or without daily variability
+# elprice1 <- my_elprice(df= elprice_czk
+#                           , years = 5
+#                           , annual_growth = 0.04
+#                           , method ="static"
+#                           , add_intraday_variability = FALSE
+#                           , add_intraweek_variability = FALSE) %>% mutate(series="static only")
+# 
+# 
+# elprice2 <- my_elprice(df= elprice_czk
+#                           , years = 5
+#                           , annual_growth = 0.04
+#                           , method ="static"
+#                           , add_intraday_variability = TRUE
+#                           , add_intraweek_variability = FALSE) %>% mutate(series="static + variab_day")
+# 
+# elprice3 <- my_elprice(df= elprice_czk
+#                           , years = 5
+#                           , annual_growth = 0.04
+#                           , method ="static"
+#                           , add_intraday_variability = TRUE
+#                           , add_intraweek_variability = TRUE) %>% mutate(series="static + variab_both")
+# 
+# elprice4 <- my_elprice(df= elprice_czk
+#                           , years = 5
+#                           , annual_growth = 0.04
+#                           , method ="linear"
+#                           , add_intraday_variability = TRUE
+#                           , add_intraweek_variability = TRUE) %>% mutate(series="linear + variab_both")
+# 
+# elprice <- bind_rows(elprice1, elprice2, elprice3, elprice4)
+# elpriceF <- elprice %>% filter(datetime >= '2027-01-01' & datetime <= '2027-01-30') %>% filter(series != "static only")
+# plt1 <- elpriceF%>% ggplot(aes(x=datetime, y=price, color = series)) +
+#   geom_line(alpha =.7)+
+#   theme_minimal()
+# plt1
+# 
+
+
+
+#### observe daily patterns in data ####
+
+# daily ACTUAL PRICE pattern
+intraday_pattern_actualprice <- elprice_czk %>% select(datetime, price)
+
+intraday_distribution_per_year_actualprice <- intraday_pattern_actualprice %>% as_tibble() %>%
+  mutate(hour = hour(datetime) %>% as.integer()
+         , year = year(datetime)) %>%
+  group_by(hour, year) %>%
+  summarise(mean_price = mean(price, na.rm = TRUE),
+            sd_price = sd(price, na.rm = TRUE))
+# avg daily ACTUAL PRICe
+intraday_distribution_avg_actualprice <- intraday_pattern_actualprice %>% as_tibble() %>%
+  mutate(hour = hour(datetime) %>% as.integer()
+         , year = year(datetime)) %>%
+  group_by(hour) %>%
+  summarise(mean_price = mean(price, na.rm = TRUE),
+            sd_price = sd(price, na.rm = TRUE), 
+            quantile_025 = quantile(price, probs = 0.025, na.rm = TRUE),
+            quantile_050 = quantile(price, probs = 0.05, na.rm = TRUE),
+            quantile_500 = quantile(price, probs = 0.5, na.rm = TRUE),
+            quantile_950 = quantile(price, probs = 0.95, na.rm = TRUE),
+            quantile_975 = quantile(price, probs = 0.975, na.rm = TRUE)
+  )
+
+# add average ACTUAL PRICE to indiv years
+intraday_distribution_actualprice <- bind_rows(intraday_distribution_per_year_actualprice, intraday_distribution_avg_actualprice) %>%
+  mutate( year = as.character(year),
+          year_ = replace_na(year, "average"))
+
+
+#### display charts for actual price over years ####
+if (plot_charts) {
+  # observe the mean and quantiles of ACTUAL PRICE individual hour of the day in individual years -> recent years higher volatility
+  intraday_distribution_actualprice %>% ggplot(aes(x = hour, y = mean_price, color = as.factor(year_))) +
+    geom_line() +
+    geom_text_repel(data = intraday_distribution_actualprice %>%
+                      group_by(year_) %>%
+                      filter(hour == max(hour)), 
+                    aes(label = as.factor(year_)), 
+                    box.padding = 0.5,  # Adjust the padding around text
+                    max.overlaps = 20,  # Control number of overlaps
+                    nudge_x = 0.5,  # Nudging the text slightly to the right
+                    nudge_y = 0,  # No nudging vertically
+                    direction = "y",  # Keep text on the y-axis
+                    hjust = 0, vjust = 0) +  # Text alignment
+    labs(
+      title = "Development of Mean Price - Daily Pattern Over the Years",
+      x = "Hour of Day",
+      y = "Price (CZK / kWh)"
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none")  # Remove the legend
+  
+  my_ggsave("gfx/elprice/01_price_actual_hourly_pattern_by_year.png")
+  
+  # plot the standard deviation of the daily pattern - higher volatility
+  ggplot(intraday_distribution_actualprice, aes(x = hour, y = sd_price, color = as.factor(year_))) +
+    geom_line() +
+    geom_text_repel(data = intraday_distribution_actualprice %>%
+                      group_by(year_) %>%
+                      filter(hour == max(hour)), 
+                    aes(label = as.factor(year_)), 
+                    box.padding = 0.5,  # Adjust the padding around text
+                    max.overlaps = 20,  # Control number of overlaps
+                    nudge_x = 0.5,  # Nudging the text slightly to the right
+                    nudge_y = 0,  # No nudging vertically
+                    direction = "y",  # Keep text on the y-axis
+                    hjust = 0, vjust = 0) +  # Text alignment
+    labs(
+      title = "Development of Standard Deviation of Price - Daily Pattern Over the Years",
+      x = "Hour of Day",
+      y = "Standard Deviation of Price (CZK / kWh)"
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none")  # Remove the legend
+  my_ggsave("gfx/elprice/02_price_actual_stdev_hourly_pattern_by_year.png")
+  
+  # plot average and empirical quantiles
+  intraday_distribution_avg_actualprice %>% ggplot(aes(x = hour, y = mean_price)) +
+    geom_line(color = "blue", size = 1) +   
+    geom_ribbon(aes(ymin = quantile_025, ymax = quantile_975), fill = "blue", alpha = 0.2) + 
+    labs(
+      title = "Mean and Empirical 95% Confidence Interval of Price in CZK/kWh",
+      x = "Hour of Day",
+      y = "Price (CZK / kWh)"
+    ) +
+    geom_label_repel(aes(label = round(mean_price,2), size = 3)) +
+    geom_hline(yintercept = 0) +
+    theme_minimal() +
+    theme(legend.position = "none") 
+  my_ggsave("gfx/elprice/03_price_actual_mean_and_quantiles_hourly_pattern.png")
+  
+  # timeseries chart of price over time
+  daily_median_actualprice <- elprice_czk %>% group_by(date) %>% 
+    summarize(median = median(price, na.rm = TRUE)
+              , mean = mean(price, na.rm = TRUE)
+              , sd = sd(price, na.rm = TRUE) ) %>%
+    ungroup() %>%
+    arrange(date) %>%  # Ensure data is sorted by date (rollmean requires sorted data)
+    mutate(mean_24h = zoo::rollmean(mean, k = 24, fill = NA, align = "right")
+           , mean_1month = zoo::rollmean(mean, k = 24*30, fill = NA, align = "right")
+           , year = year(date))
+  
+  # plot price development
+  daily_median_actualprice %>% ggplot(aes(x = date)) +
+    # geom_line(aes(y = median, colour = "green", alpha=.05)) + 
+    geom_line(aes(y = mean, alpha=.05), color = "blue") +
+    #geom_line(aes(y = mean_24h, alpha=.05), color = "green") +
+    #geom_line(aes(y = mean_1month, colour = "darkgreen", alpha=.05)) +
+    geom_smooth(aes(y = mean), color = "red",
+                method = "loess",  # Explicitly use loess
+                se = FALSE,
+                span = 0.05,  # Adjust span for rolling average window
+                n = nrow(daily_median_actualprice)) + #n is crucial for loess to work correctly with date
+    labs(
+      title = "Daily mean of price",
+      x = "Date",
+      y = "Price (CZK / kWh)"
+    ) +
+    #geom_label_repel(aes(label = round(mean_price,2), size = 3)) +
+    geom_hline(yintercept = 0) +
+    theme_minimal() +
+    theme(legend.position = "none") 
+  my_ggsave("gfx/elprice/04_price_actual_timeseries_hourly_mean_rollmean_loess.png")
+  
+  # facet by year 
+  daily_median_actualprice %>% #filter(date>='2017-01-01' & date<'2021-01-01') %>% 
+    mutate(year =  year(date),
+           date1 = as_date(paste(1901, str_pad(month(date),2, pad = "0"), str_pad(day(date),2, pad = "0"), sep = "-"))
+    ) %>%
+    ggplot(aes(x = date1)) +
+    facet_grid(year ~ ., scales = "free_y") +  
+    scale_x_date(labels = scales::date_format("%b")
+                 #, breaks = "1 month"
+                 , date_breaks = "1 month"
+                 #, limits = as.Date(c(paste0("1901-01-01"), paste0("1901-12-31")))
+    ) +
+    geom_line(aes(y = mean, alpha=.05), colour = "blue") +
+    geom_hline(yintercept = daily_median_actualprice %>% summarize(mean=mean(mean,na.rm=TRUE) %>% round(3)) %>% pull(1)
+               , linetype = "dashed") +
+    # geom_smooth(aes(y = mean, ), colour = "red",
+    #             method = "loess",  # Explicitly use loess
+    #             se = FALSE,
+    #             span = 0.1,  # Adjust span for rolling average window
+    #             n = nrow(daily_median_actualprice)) + #n is crucial for loess to work correctly with date
+    labs(
+      title = "Daily mean of price (dashed line shows the average price over sample)",
+      x = "Date",
+      y = "Price (CZK / kWh)"
+    ) +
+    #geom_label_repel(aes(label = round(mean_price,2), size = 3)) +
+    geom_hline(yintercept = 0, color = "black") +
+    theme_minimal() +
+    theme(legend.position = "none") 
+  my_ggsave("gfx/elprice/04_price_actual_timeseries_daily_by_year_facet.png", height = 200)
+  
+  # price and distr. costs
+  daily_median_actualprice %>% left_join(distribution_costs, by = "year") %>%
+    mutate(price_w_distr = grid_cost + mean) %>%
+    ggplot(aes(x = date)) +
+    # geom_line(aes(y = median, colour = "green", alpha=.05)) + 
+    geom_line(aes(y = mean, alpha=.01), color = "blue") +
+    geom_line(aes(y = grid_cost, alpha=.05), color = "green") +
+    geom_line(aes(y = price_w_distr, alpha=.05), color = "black") +
+    labs(
+      title = "El. price (blue), grid costs (green) and total (black)",
+      x = "Date",
+      y = "Price (CZK / kWh)"
+    ) +
+    #geom_label_repel(aes(label = round(mean_price,2), size = 3)) +
+    geom_hline(yintercept = 0) +
+    theme_minimal() +
+    theme(legend.position = "none") 
+  my_ggsave("gfx/elprice/04_price_actual_timeseries_and_distr_costs.png")
+}# shows mean and sd in individual years
+
+
+# seasonality components from ""Seasonal-Trend decomposition using Loess" (STL):  Trend, Seasonal Component, Remainder (residual); 
+decomposed <- elprice_czk %>% as_tsibble(index = datetime) %>% 
+  filter(datetime<'2024-01-01') %>%
+  model(STL(price ~ season(period = "day") + season(period = 24*7))) %>%  #season is "day" because pattern repeats daily
+  components()
+
+# daily SEASONAL PATTERN
+intraday_pattern <- decomposed %>% select(datetime, season_day)
+monthly_pattern <- decomposed %>% select(datetime, season_168)
+
+intraday_distribution_per_year <- intraday_pattern %>% as_tibble() %>%
+  mutate(hour = hour(datetime) %>% as.integer()
+         , year = year(datetime)) %>%
+  group_by(hour, year) %>%
+  summarise(mean_price = mean(season_day, na.rm = TRUE),
+            sd_price = sd(season_day, na.rm = TRUE))
+# avg daily SEASONAL PATTERN
+intraday_distribution_avg <- intraday_pattern %>% as_tibble() %>%
+  mutate(hour = hour(datetime) %>% as.integer()
+         , year = year(datetime)) %>%
+  group_by(hour) %>%
+  summarise(mean_price = mean(season_day, na.rm = TRUE),
+            sd_price = sd(season_day, na.rm = TRUE), 
+            quantile_025 = quantile(season_day, probs = 0.025, na.rm = TRUE),
+            quantile_050 = quantile(season_day, probs = 0.05, na.rm = TRUE),
+            quantile_250 = quantile(season_day, probs = 0.25, na.rm = TRUE),
+            quantile_500 = quantile(season_day, probs = 0.5, na.rm = TRUE),
+            quantile_750 = quantile(season_day, probs = 0.75, na.rm = TRUE),
+            quantile_950 = quantile(season_day, probs = 0.95, na.rm = TRUE),
+            quantile_975 = quantile(season_day, probs = 0.975, na.rm = TRUE)
+  )
+
+# add average SEASONAL PATTERN to indiv years
+intraday_distribution <- bind_rows(intraday_distribution_per_year,intraday_distribution_avg) %>%
+  mutate( year = as.character(year),
+          year_ = replace_na(year, "average"))
+
+# monthly component
+monthly_distribution_per_year <- monthly_pattern %>% as_tibble() %>%
+  mutate(month = month(datetime) %>% as.integer()
+         , year = year(datetime)) %>%
+  group_by(month, year) %>%
+  summarise(mean_price = mean(season_168, na.rm = TRUE),
+            sd_price = sd(season_168, na.rm = TRUE))
+# avg daily SEASONAL PATTERN
+monthly_distribution_avg <- monthly_pattern %>% as_tibble() %>%
+  mutate(month = month(datetime) %>% as.integer()
+         , year = year(datetime)) %>%
+  group_by(month) %>%
+  summarise(mean_price = mean(season_168, na.rm = TRUE),
+            sd_price = sd(season_168, na.rm = TRUE), 
+            quantile_025 = quantile(season_168, probs = 0.025, na.rm = TRUE),
+            quantile_050 = quantile(season_168, probs = 0.05, na.rm = TRUE),
+            quantile_500 = quantile(season_168, probs = 0.5, na.rm = TRUE),
+            quantile_950 = quantile(season_168, probs = 0.95, na.rm = TRUE),
+            quantile_975 = quantile(season_168, probs = 0.975, na.rm = TRUE)
+  )
+
+# add average SEASONAL PATTERN to indiv years
+monthly_distribution <- bind_rows(monthly_distribution_per_year, monthly_distribution_avg) %>%
+  mutate( year = as.character(year),
+          year_ = replace_na(year, "average"))
+
+#### display charts for intraday seasonal component of the price over years ####
+if (plot_charts) {
+  # observe the mean and sd of SEASONAL PATTERN individual hour of the day in individual years -> recent years higher volatility
+  ggplot(monthly_distribution, aes(x = month, y = mean_price, color = as.factor(year_))) +
+    geom_line() +
+    geom_text_repel(data = monthly_distribution %>%
+                      group_by(year_) %>%
+                      filter(month == max(month)), 
+                    aes(label = as.factor(year_)), 
+                    arrow = arrow(type = 'closed', length = unit(0.2, 'cm')),
+                    box.padding = 0.5,  # Adjust the padding around text
+                    max.overlaps = 20,  # Control number of overlaps
+                    nudge_x = 0.5,  # Nudging the text slightly to the right
+                    nudge_y = 0,  # No nudging vertically
+                    direction = "y",  # Keep text on the y-axis
+                    hjust = 0, vjust = 0) +  # Text alignment
+    labs(
+      title = "Development of Mean of Monthly Seasonal ComponentOver the Years",
+      x = "Month",
+      y = "CZK / kWh"
+    ) +
+    theme_minimal() +
+    scale_x_continuous(breaks = pretty_breaks()) +
+    theme(legend.position = "none")  # Remove the legend
+  my_ggsave("gfx/elprice/05_price_seasonal_hour_hourly_pattern_by_year.png")
+  
+  
+  # plot the standard deviation of the daily pattern - higher volatility
+  ggplot(intraday_distribution, aes(x = hour, y = sd_price, color = as.factor(year_))) +
+    geom_line() +
+    geom_text_repel(data = intraday_distribution %>%
+                      group_by(year_) %>%
+                      filter(hour == max(hour)), 
+                    aes(label = as.factor(year_)), 
+                    arrow = arrow(type = 'closed'),
+                    box.padding = 0.5,  # Adjust the padding around text
+                    max.overlaps = 20,  # Control number of overlaps
+                    nudge_x = 0.5,  # Nudging the text slightly to the right
+                    nudge_y = 0,  # No nudging vertically
+                    direction = "y",  # Keep text on the y-axis
+                    hjust = 0, vjust = 0) +  # Text alignment
+    labs(
+      title = "Development of Standard Deviation of Seasonal Component Daily Pattern Over the Years",
+      x = "Hour of Day",
+      y = "Standard Deviation of Seasonality"
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none")  # Remove the legend
+  my_ggsave("gfx/elprice/06_price_stdev_seasonal_hour_hourly_pattern_by_year.png")
+  
+  # plot average and empirical quantiles for intraday seasonal component
+  intraday_distribution_avg %>% ggplot(aes(x = hour, y = mean_price)) +
+    geom_line(color = "blue", size = 1) +  # Plot the mean line
+    geom_ribbon(aes(ymin = quantile_025, ymax = quantile_975), fill = "blue", alpha = 0.2) +  # Confidence interval
+    labs(
+      title = "Mean and Empirical 95% CI of Seasonal Component",
+      x = "Hour of Day",
+      y = "Mean Seasonality with Confidence Interval"
+    ) +
+    geom_label_repel(aes(label = round(mean_price,2)), size = 3) +
+    geom_hline(yintercept = 0) +
+    theme_minimal() +
+    theme(legend.position = "none")
+  
+  my_ggsave("gfx/elprice/07_price_seasonal_mean_and_quantiles_hourly_pattern_by_year.png")
+  
+  
+}#end plot seasonal components 
+
+
+
+#### for 2023, observe whether the intraday pattern of actual price changes in various months of the year ####
+if (plot_charts & FALSE) {
+  # daily ACTUAL PRICe pattern
+  intraday_pattern_actualprice <- elprice_czk %>% filter(year == 2023) %>% select(datetime, price, year, month)
+  
+  intraday_distribution_per_year_actualprice <- intraday_pattern_actualprice %>% as_tibble() %>%
+    mutate(hour = hour(datetime) %>% as.integer()) %>%
+    group_by(hour, year, month) %>%
+    summarise(mean_price = mean(price, na.rm = TRUE),
+              sd_price = sd(price, na.rm = TRUE))
+  # avg daily ACTUAL PRICe
+  intraday_distribution_avg_actualprice <- intraday_pattern_actualprice %>% as_tibble() %>%
+    mutate(hour = hour(datetime) %>% as.integer()
+    ) %>%
+    group_by(hour) %>%
+    summarise(mean_price = mean(price, na.rm = TRUE),
+              sd_price = sd(price, na.rm = TRUE), 
+              quantile_025 = quantile(price, probs = 0.025, na.rm = TRUE),
+              quantile_050 = quantile(price, probs = 0.05, na.rm = TRUE),
+              quantile_500 = quantile(price, probs = 0.5, na.rm = TRUE),
+              quantile_950 = quantile(price, probs = 0.95, na.rm = TRUE),
+              quantile_975 = quantile(price, probs = 0.975, na.rm = TRUE)
+    )
+  
+  # add average ACTUAL PRICE to indiv years
+  intraday_distribution_actualprice <- bind_rows(intraday_distribution_per_year_actualprice, intraday_distribution_avg_actualprice) %>%
+    mutate( month = as.character(month),
+            month_ = replace_na(month, "average"))
+  
+  # observe the mean and quantiles of ACTUAL PRICE individual hour of the day in individual years -> recent years higher volatility
+  ggplot(intraday_distribution_actualprice, aes(x = hour, y = mean_price, color = as.factor(month_))) +
+    geom_line() +
+    geom_text_repel(data = intraday_distribution_actualprice %>%
+                      group_by(month_) %>%
+                      filter(hour == max(hour)), 
+                    aes(label = as.factor(month_)), 
+                    box.padding = 0.5,  # Adjust the padding around text
+                    max.overlaps = 20,  # Control number of overlaps
+                    nudge_x = 0.5,  # Nudging the text slightly to the right
+                    nudge_y = 0,  # No nudging vertically
+                    direction = "y",  # Keep text on the y-axis
+                    hjust = 0, vjust = 0) +  # Text alignment
+    labs(
+      title = "Development of Mean Price - Daily Pattern Over Month in 2023",
+      x = "Hour of Day",
+      y = "CZK / kWh"
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none")  # Remove the legend
+  
+  # plot the standard deviation of the daily pattern - higher volatility
+  ggplot(intraday_distribution_actualprice, aes(x = hour, y = sd_price, color = as.factor(month_))) +
+    geom_line() +
+    geom_text_repel(data = intraday_distribution_actualprice %>%
+                      group_by(month_) %>%
+                      filter(hour == max(hour)), 
+                    aes(label = as.factor(month_)), 
+                    box.padding = 0.5,  # Adjust the padding around text
+                    max.overlaps = 20,  # Control number of overlaps
+                    nudge_x = 0.5,  # Nudging the text slightly to the right
+                    nudge_y = 0,  # No nudging vertically
+                    direction = "y",  # Keep text on the y-axis
+                    hjust = 0, vjust = 0) +  # Text alignment
+    labs(
+      title = "Development of Standard Deviation of Price - Daily Pattern Over Month in 2023",
+      x = "Hour of Day",
+      y = "Standard Deviation of Seasonality"
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none")  # Remove the legend
+  
+  # plot average and empirical quantiles
+  intraday_distribution_avg_actualprice %>% ggplot(aes(x = hour, y = mean_price)) +
+    geom_line(color = "blue", size = 1) +   
+    geom_ribbon(aes(ymin = quantile_025, ymax = quantile_975), fill = "blue", alpha = 0.2) + 
+    labs(
+      title = "Mean and Empirical 95% Confidence Interval of Price in CZK/kWh",
+      x = "Hour of Day",
+      y = "CZK/kWh"
+    ) +
+    geom_label_repel(aes(label = round(mean_price,2), size = 3)) +
+    geom_hline(yintercept = 0) +
+    theme_minimal() +
+    theme(legend.position = "none") 
+  
+  
+}# show mean and sd in 2023 by month
+
+
+
+#### observe seasonality patterns ####
+
+if (plot_charts) {
+  timetk::plot_stl_diagnostics(elprice_czk, .date_var = datetime, .value = price)
+  my_ggsave("gfx/elprice/08_price_seasonal_slt_diagnostics.png")
+  
+  timetk::plot_seasonal_diagnostics(elprice_czk, .date_var = datetime, .value = price)
+  my_ggsave("gfx/elprice/09_price_seasonal_diagnostics.png", height = 200)
+}
+
+#### define training vs testing split ####
+elprice_czk_split <- rsample::initial_time_split(elprice_czk, prop =   1- (365*24/ nrow(elprice_czk)))
+elprice_czk_train <- rsample::training(elprice_czk_split) %>%  as_tsibble(index = datetime)
+elprice_czk_test <- rsample::testing(elprice_czk_split) %>%  as_tsibble(index = datetime)
+
+#is_tsibble(elprice_czk)
+#is_tsibble(elprice_czk_train)
+
+tslm_fit <- elprice_czk_train %>% 
+  fabletools::model(trend_fit = TSLM(price ~ trend())
+                    , ts_fit = TSLM(price ~ trend() + season())
+                    #ts_2_fit = TSLM(price ~ trend() + season() + I(trend()^2))
+  )
+
+tidy(tslm_fit) %>% View()
+
+#see fit metrics
+tslm_fit %>% 
+  accuracy() %>% 
+  arrange(MAPE)
+
+# plot forecast 
+tmp1 <- tslm_fit %>% 
+  forecast(h = "3 years") 
+tmp1 %>% 
+  autoplot(elprice_czk %>% as_tsibble(index = datetime))
+
+#### Models - functions ####
+# apply some trend & add hourly component from average daily distribution of historical observations
