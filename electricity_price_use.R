@@ -1,5 +1,9 @@
 source("electricity_price.R")
-plot_charts == FALSE
+
+#TODO convert plots to a function
+plot_charts <- FALSE
+
+
 
 #### prepare data #### 
 # read electricity prices from file
@@ -45,7 +49,8 @@ grid_cost <- my_gridcost(df = my_data_read_distrib_costs_observed_data()
 # )
 grid_cost$plot
 grid_cost_data <- grid_cost$grid_cost #hourly data only
-save( x= grid_cost_data, file = "_cache/grid_cost.Rdata")
+#save( x= grid_cost_data, file = "_cache/grid_cost.Rdata")
+saveRDS(grid_cost, file = "_cache/grid_cost.Rds")
 
 # generate dataset for feed in tariff in hourly frequency
 feed_in <- my_feed_in( years = 3
@@ -56,20 +61,20 @@ feed_in <- my_feed_in( years = 3
                        , lastval = 1.1 #last value of price in kWh 
 )
 feed_in$plot
-feed_in_data <- feed_in$feed_in
-save( x= feed_in_data, file = "_cache/feed_in_price.Rdata")
-
+#feed_in_data <- feed_in$feed_in
+#save( x= feed_in_data, file = "_cache/feed_in_price.Rdata")
+saveRDS(feed_in, file = "_cache/feed_in_price.Rds")
 
 # static forecast
-elprice <- my_elprice(df = my_data_read_elprice_observed_data()
+elprice <- my_elprice(df = my_data_read_elprice_observed_data(multiply_wholesale_by = 1.1)
                          , startdate = '2022-01-01'
                          , years = 2
                          , annual_growth = 0.04
                          , method ="static"
                          , add_intraday_variability = FALSE
                          , add_intraweek_variability = FALSE) 
-save(elprice , file = "_cache/elprice_static.Rdata")
-
+#save(elprice , file = "_cache/elprice_static.Rdata")
+saveRDS(elprice, file = "_cache/elprice.Rds" )
 
 # # static forecast - with or without daily variability
 # elprice1 <- my_elprice(df= elprice_czk

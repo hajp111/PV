@@ -11,7 +11,7 @@ myCombineConsAndSolar <- function(solar_data
                           # , grid_cost_data
                           ) {
   
-solar_data <- solar_data$solar_data %>% mutate(P_kWh = P / 10^3) %>% select(datetime, date, hour, P_kWh) 
+solar_data <- solar_data %>% select(datetime, date, hour, P_kWh) 
 elcons <- elcons %>% select(datetime, date, hour, cons_kWh)
 # elprice <- elprice %>% select(datetime, date, hour, price)
 # feed_in_data <- feed_in_data %>% select(datetime, date, hour, feed_in)
@@ -280,25 +280,28 @@ FindBreakevenPrice <- function(hourly_energy_flows, params = system_params) {
 }#endfunction FindBreakevenPrice
 
 
+# aux scaling functions
+# secondary y-axis to match primary y-axis scale
+scale_secondary_to_primary <- function(x, range_primary_y, range_secondary_y) {
+  (x - range_secondary_y[1]) / (range_secondary_y[2] - range_secondary_y[1]) * 
+    (range_primary_y[2] - range_primary_y[1]) + range_primary_y[1]
+}#endfunction scale_secondary_to_primary
+
+# inverse scaling for the secondary y-axis
+scale_primary_to_secondary <- function(y, range_primary_y, range_secondary_y) {
+  (y - range_primary_y[1]) / (range_primary_y[2] - range_primary_y[1]) * 
+    (range_secondary_y[2] - range_secondary_y[1]) + range_secondary_y[1]
+}#endfunction scale_primary_to_secondary
+
 # plot values in selected day (hourly)
 plotDay <- function(which_day, hourly_energy_flows, params = system_params) {
   which_day <- ConvertTextToDate(which_day)
   df <- hourly_energy_flows %>% filter(date == which_day)
   
   range_primary_y <- range(c(df$PV_available, df$total_demand, df$grid_import, df$grid_export), na.rm = TRUE)
-  range_battery_soc <- c(0, params$battery_capacity_kwh)  # Min 0, Max battery capacity
+  range_secondary_y <- c(0, params$battery_capacity_kwh)  # Min 0, Max battery capacity
   
-  # Battery SoC to match primary y-axis scale
-  scale_battery_to_primary <- function(x) {
-    (x - range_battery_soc[1]) / (range_battery_soc[2] - range_battery_soc[1]) * 
-      (range_primary_y[2] - range_primary_y[1]) + range_primary_y[1]
-  }
-  
-  # Inverse scaling for the secondary y-axis
-  scale_primary_to_battery <- function(y) {
-    (y - range_primary_y[1]) / (range_primary_y[2] - range_primary_y[1]) * 
-      (range_battery_soc[2] - range_battery_soc[1]) + range_battery_soc[1]
-  }
+
   
   ggplot() +
     geom_line(data = df, aes(x = hour, y = PV_available, color = "PV Production")) +
@@ -306,13 +309,13 @@ plotDay <- function(which_day, hourly_energy_flows, params = system_params) {
     geom_line(data = df, aes(x = hour, y = grid_import, color = "Grid Import"), linetype = "dashed") +
     geom_line(data = df, aes(x = hour, y = grid_export, color = "Grid Export"), linetype = "dotdash") +
     #rescaled Battery SoC
-    geom_line(data = df, aes(x = hour, y = scale_battery_to_primary(battery_soc), 
+    geom_line(data = df, aes(x = hour, y = scale_secondary_to_primary(battery_soc, range_primary_y, range_secondary_y), 
                   color = "Battery SoC"), linetype = "dotted") +
-    labs(title = paste("Energy Flow on", day), x = "Hour", y = "kWh") +
+    labs(title = paste("Expected energy flows on", which_day), x = "Hour", y = "kWh") +
     scale_color_manual(values = c("PV Production" = "orange", "Total Demand" = "red",
                                   "Battery SoC" = "blue", "Grid Import" = "black", "Grid Export" = "darkgreen")) +
     scale_y_continuous(
-      sec.axis = sec_axis(~ scale_primary_to_battery(.), name = "Battery SoC (kWh)")
+      sec.axis = sec_axis(~ scale_primary_to_secondary(., range_primary_y, range_secondary_y), name = "Battery SoC (kWh)")
     ) +
     theme_minimal()
 }#endfunction plotDay
@@ -321,23 +324,95 @@ plotDay <- function(which_day, hourly_energy_flows, params = system_params) {
 plotWeek <- function(start_day, hourly_energy_flows, params = system_params) {
   start_day <- ConvertTextToDate(start_day)
   df <- hourly_energy_flows %>% filter(date >= start_day & date < (start_day + days(7)))
+  range_primary_y <- range(c(df$PV_available, df$total_demand, df$grid_import, df$grid_export), na.rm = TRUE)
+  range_secondary_y <- c(0, params$battery_capacity_kwh)  # Min 0, Max battery capacity
   
   ggplot() +
     geom_line(data = df, aes(x = datetime, y = PV_available, color = "PV Production")) +
     geom_line(data = df, aes(x = datetime, y = total_demand, color = "Total Demand")) +
     geom_line(data = df, aes(x = datetime, y = grid_import, color = "Grid Import"), linetype = "dashed") +
     geom_line(data = df, aes(x = datetime, y = grid_export, color = "Grid Export"), linetype = "dotdash") +
-    geom_line(data = df, aes(x = datetime, y = scale_battery_to_primary(battery_soc), 
+    geom_line(data = df, aes(x = datetime, y = scale_secondary_to_primary(battery_soc, range_primary_y, range_secondary_y), 
                              color = "Battery SoC"), linetype = "dotted") +
     labs(title = paste("Energy Flow from", start_day, "to", start_day + days(6)),
          x = "Date-Time", y = "kWh") +
-    labs(title = paste("Energy Flow on", day), x = "Hour", y = "kWh") +
+    labs(title = paste("Exp. energy flows from ", start_day), x = "Hour", y = "kWh") +
     scale_color_manual(values = c("PV Production" = "orange", "Total Demand" = "red",
                                   "Battery SoC" = "blue", "Grid Import" = "black", "Grid Export" = "darkgreen")) +
     scale_y_continuous(
-      sec.axis = sec_axis(~ scale_primary_to_battery(.), name = "Battery SoC (kWh)")
+      sec.axis = sec_axis(~ scale_primary_to_secondary(., range_primary_y, range_secondary_y), name = "Battery SoC (kWh)")
     ) +
     theme_minimal()
 }#endfunction plotWeek
 
+
+#plotPrices
+plotPrices <- function(start_day, range = 5, energy_flows, params = system_params) {
+  start_day <- ConvertTextToDate(start_day)
+  df <- energy_flows %>% filter(date >= start_day & date<= start_day +lubridate::days(range))
+  
+  if (!("datetime" %in% names(df)) & ("date" %in% names(df))) { df <- df %>% rename(datetime = date)}
+  
+  x_max <- max(df$datetime)  
+  x_label_pos <- x_max + lubridate::days(ceiling(range/(10)))  # 
+  
+  range_primary_y <- c(
+    ifelse(all(c(df$price, df$grid_cost, df$feed_in) >= 0, na.rm = TRUE), yes = 0
+           , no = min(c(df$price, df$grid_cost, df$feed_in), na.rm = TRUE)),
+    max(c(df$price, df$grid_cost, df$feed_in), na.rm = TRUE)
+  )
+  range_secondary_y <- c(0, max(c(df$PV_available, df$total_demand), na.rm = TRUE))
+  
+  
+  y_min <- min(0, range_primary_y[1])  # Ensures it includes 0 if all values are positive
+  y_max <- range_primary_y[2]
+  
+
+  
+  #for labels, get last values:
+  last_values <- df %>%
+    arrange(datetime) %>%
+    summarise(
+      datetime = tail(datetime, 1)
+      , `PV Production` = tail(PV_available, 1)
+      , `Total Demand` = tail(total_demand, 1)
+      , `El. price` = tail(price, 1)
+      , `Grid Cost` = tail(grid_cost, 1)
+      , `Feed-in Tariff` = tail(feed_in, 1)
+    ) %>%
+    pivot_longer(-datetime, names_to = "series", values_to = "value") %>%
+    #because of different axis, adjust position values:
+    mutate(value_scaled = case_when(
+      series %in% c("PV Production", "Total Demand") ~ scale_secondary_to_primary(value, range_primary_y, range_secondary_y)
+      ,  TRUE ~ value 
+    ))
+  color_mapping <- c("PV Production" = "orange"
+                     , "Total Demand" = "red"
+                     , "El. price" = "purple"
+                     , "Grid Cost" = "gray"
+                     , "Feed-in Tariff" = "brown")
+  
+  ggplot() +
+    #kWh values (for right-hand side y-axis)
+    geom_line(data = df, aes(x = datetime, y = scale_secondary_to_primary(PV_available, range_primary_y, range_secondary_y), color = "PV Production"), alpha=0.7) +
+    geom_line(data = df, aes(x = datetime, y = scale_secondary_to_primary(total_demand, range_primary_y, range_secondary_y), color = "Total Demand"), alpha=0.7) +
+   #prices (for main axis)
+    geom_line(data = df, aes(x = datetime, y = price, color = "El. price"), alpha=0.7) +
+    geom_line(data = df, aes(x = datetime, y = grid_cost, color = "Grid Cost"), linetype = "longdash", alpha=0.7) +
+    geom_line(data = df, aes(x = datetime, y = feed_in, color = "Feed-in Tariff"), linetype = "dashed", alpha=0.7) +
+    labs(x = "Date", y = "CZK / kWh") +
+    scale_color_manual(values = color_mapping) +
+    scale_y_continuous(limits = c(y_min, y_max),  
+                       sec.axis = sec_axis(~ scale_primary_to_secondary(., range_primary_y, range_secondary_y), name = "kWh")) +
+    # add text labels for last values
+    #geom_point(data = last_values, aes(x = datetime, y = value_scaled, color = series), size = 3) +
+    geom_text_repel(data = last_values, 
+                    aes(x = x_label_pos,, y = value_scaled
+                        , label = paste0(series, ": ", round(value, 1))
+                        , color = series),
+                    hjust = 0, nudge_x = 0.05, direction = "y"
+                    , size = 3) +
+    theme(legend.position = "none")+
+    theme_minimal()
+}#endfunction plotPrices
 

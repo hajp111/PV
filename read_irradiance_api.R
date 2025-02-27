@@ -7,7 +7,7 @@ source("aux_functions.R")
 
 solar_data_cache_file_path <- "_cache/solar_data_backup/unavailable_API_example_data.Rds"
 
-get_solar_data <- function(lat =  49.278
+getSolarData <- function(lat =  49.278
                            , lon = 16.998
                            , start_date = '2022-01-01'
                            , system_lifetime = 20
@@ -172,11 +172,21 @@ if (length(years_to_fill) > 0) {
   solar_data <- bind_rows(solar_data, y)
   }#endif
 
-solar_data <- solar_data %>% filter(year >= orig_startyear & year <= orig_endyear)
+solar_data <- solar_data %>% filter(year >= orig_startyear & year <= orig_endyear) %>%
+              mutate(P_kWh = P / 10^3)
 
 #write_csv(metadata, file = "tmp_metadata.csv")
 print(metadata)
-return(list(solar_data = solar_data, metadata = metadata))
+
+solar_data_daily <- solar_data %>% group_by(date, year, month, day, weekday, is_weekend, data_from_year) %>% 
+  summarize(P_kWh = P_kWh %>% sum(na.rm = TRUE)
+            )
+plot <- solar_data_daily %>% ggplot() +
+  geom_line(aes(x=date, y = P_kWh), alpha = 0.5) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+  theme_minimal()
+
+return(list(solar_data = solar_data, metadata = metadata, solar_data_daily = solar_data_daily, plot = plot))
 
 
 # if errors when reading from API, try to use backup data instead
@@ -195,10 +205,10 @@ return(list(solar_data = solar_data, metadata = metadata))
   return(solar_data)
   
 })# tryCatch end
-}#ENDFUNCTION get_solar_data
+}#ENDFUNCTION getSolarData
 
 if (file.exists("_cache/solar_data_backup/unavailable_API_example_data.Rds") == FALSE) {
-  backup_solar_data <- get_solar_data(lat =  49.278
+  backup_solar_data <- getSolarData(lat =  49.278
                                    , lon = 16.998
                                    , start_date = '2005-01-01'
                                    , system_lifetime = 40

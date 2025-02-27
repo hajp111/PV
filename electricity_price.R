@@ -31,7 +31,9 @@ my_data_read_distrib_costs_observed_data <- function(filepath = "_static_data/ce
   return(distribution_costs)
 }#endfunction my_data_read_distrib_costs_observed_data
 
-my_data_read_elprice_observed_data <- function(filepath = "_static_data/Czechia.csv"
+#wholesale prices ! 
+my_data_read_elprice_observed_data <- function(multiply_wholesale_by = 1.2 #wholesale prices -> actual prices usually higher (profit margin)
+                                               , filepath = "_static_data/Czechia.csv"
                                                , filepath_fx = "_static_data/ECB_Data_Portal_long_20250207083750.xlsx") {
   # read el prices for CZ from eurostat
   elprice_cz <- readr::read_csv(file = filepath) %>%
@@ -55,10 +57,11 @@ my_data_read_elprice_observed_data <- function(filepath = "_static_data/Czechia.
   
   # convert EUR to CZK prices
   elprice_czk <- elprice_cz %>% left_join(fxrate %>% select(date, EURCZK), by = "date") %>%
-    mutate(price_CZK_kWh = `Price (EUR/MWhe)`* EURCZK / 10^3) %>%
+    mutate(price_CZK_kWh = `Price (EUR/MWhe)`* EURCZK / 10^3
+           , price_CZK_kWh_retail = price_CZK_kWh * multiply_wholesale_by) %>%
     rename(datetime = datetime_fixed) %>%
-    select(datetime, date, year, month, day, hour,  price_CZK_kWh) %>%
-    rename(price = price_CZK_kWh)
+    select(datetime, date, year, month, day, hour, price_CZK_kWh_retail) %>%
+    rename(price = price_CZK_kWh_retail)
   
   # check duplicates
   if ( elprice_czk %>% count(datetime) %>% filter(n > 1) %>% nrow() >1) {warning("Duplicated values found!")}
@@ -478,7 +481,14 @@ my_elprice <- function(df
     mutate(# noise_multiplier1 = sample(c(-1, 1), size = n(), replace = TRUE)
       price = price_method + generated_hour_component + generated_week_component)
   
-  return(future_prices)
+  
+  plt <- ggplot() + 
+    geom_line(data = future_prices, aes(x=year, y = price), alpha = 0.3) +
+    theme_minimal()
+  
+  output <- list(plot = plt, price_data = future_prices)
+  
+  return(output)
 }#endfunction my_elprice
 
 

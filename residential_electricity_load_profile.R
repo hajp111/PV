@@ -50,8 +50,17 @@ H0_hourly <- H0 %>% mutate(
   ) %>%
   select(-noise_range)
 
+H0_daily <- H0_hourly %>% group_by(profile_id, date, day_of_year, year, quarter, period, month, day, weekday, is_weekend) %>% 
+  summarize(cons_kWh = sum(cons_kWh))
 
-return(H0_hourly)
+plt <- ggplot() + 
+  geom_line(data = H0_daily, aes(x=date, y = cons_kWh), alpha = 0.5) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+  theme_minimal()
+
+output <- list(plot = plt, elcons = H0_hourly, elcons_daily = H0_daily)
+
+return(output)
 }#endfunction get_load_data
 
 

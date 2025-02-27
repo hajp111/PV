@@ -1,7 +1,7 @@
 source("read_irradiance_api.R")
 
 
-solar_data <- get_solar_data(lat =  49.278
+solar <- getSolarData(lat =  49.278
                              , lon = 16.998
                              , start_date = '2022-01-01'
                              , system_lifetime = 2
@@ -15,7 +15,7 @@ solar_data <- get_solar_data(lat =  49.278
 # only works for range 2005 - 2023 
 # to project into the future -> pick a random year and repeat the values 
 
-glimpse(solar_data$solar_data)
-solar_data$solar_data %>% group_by(year) %>% tally()
-
-save(solar_data, file = "_cache/solar_data.Rdata")
+glimpse(solar$solar_data)
+solar$solar_data %>% group_by(year) %>% tally()
+#save(solar_data, file = "_cache/solar_data.Rdata")
+saveRDS(solar, file = "_cache/solar.Rds")

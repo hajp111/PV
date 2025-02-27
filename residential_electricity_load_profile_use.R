@@ -15,8 +15,14 @@ standardlastprofile::slp_info("H0")
 # the load profile is defined so that annual consumption is 1000 kWh -> multiply load profile by expected annual consumption
 
 
-# elcons <- get_load_data(start_date = "2022-01-01", end_date = "2024-12-31", annual_consumption =3)
-# save(elcons, file = "_cache/elcons_data.Rdata")
+elcons <- get_load_data(start_date = "2022-01-01"
+              , system_lifetime = 2
+              , annual_consumption =3
+              , fixed_seed = TRUE 
+              , add_HH_cons_noise = 0 
+)
+#save(elcons, file = "_cache/elcons_data.Rdata")
+saveRDS(elcons, file = "_cache/elcons_data.Rds")
 
 ###-- generate charts for the methodology
 H0_2024_hourly <- get_load_data(start_date = "2024-01-01"
