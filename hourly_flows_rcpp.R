@@ -3,7 +3,7 @@ library(tictoc)
 library(Rcpp)
 source("aux_functions.R")
 
-#combine solar and elcons data to calculate energy flows
+#combine solar and elcons data to calculate energy flows (financial value to be calculated in a separate function)
 myCombineConsAndSolar <- function(solar_data
                           , elcons
                           # , elprice
@@ -36,7 +36,7 @@ out <- solar_data %>%
 return(out)  
 }#endfunction myCombineConsAndSolar
 
-#combine energy flows with prices (user can vary the prices)
+#combine energy flows with prices (easier to use different prices then)
 myCombineFlowsPrices <- function(energy_flows
                           , elprice
                           , feed_in_data
@@ -68,10 +68,12 @@ myCombineFlowsPrices <- function(energy_flows
 
 
 #### define functions for hourly flows ####
-sourceCpp("yearly_calc.cpp") 
 # the function calculates each year separately to improve performance
-calculate_energy_flows <- function(dat, params = system_params) {
+CalculateEnergyFlows <- function(dat, params = system_params) {
   tic()
+  #load C code
+  sourceCpp("yearly_calc.cpp") 
+  
   PV_installation_start_date <- min(dat$datetime)
   
   dat <- dat %>% mutate(
@@ -104,14 +106,6 @@ calculate_energy_flows <- function(dat, params = system_params) {
   years <- unique(year(dat$datetime))
   results_list <- vector("list", length(years))
   
-  # for (y in seq_along(years)) {
-  #   year_data <- dat %>% filter(year(datetime) == years[y])
-  #   
-  #   initial_soc <- params$battery_initial_soc * params$battery_capacity_kwh # Initial SOC for each year
-  #   year_results <- calculate_year_energy(year_data, params, initial_soc)
-  #   results_list[[y]] <- year_results
-  # }
-  
   results_list <- lapply(years, function(y) {
     year_data <- dat %>% filter(year(datetime) == y)
     initial_soc <- params$battery_initial_soc * params$battery_capacity_kwh # this is the initial SOC for each year
@@ -128,13 +122,44 @@ calculate_energy_flows <- function(dat, params = system_params) {
     )
   toc()
   return(final_results)
-}#endfunction calculate_energy_flows
+}#endfunction CalculateEnergyFlows
 
+#this ensures that the same mutate is applied in CalculateFinancials() and in BreakevenFeedIn() and BreakevenPrice()
+CalculateFinancials_auxMutate <- function(energy_flows_w_prices, params = system_params) {
+  energy_flows_w_prices <- energy_flows_w_prices %>%
+    mutate(theo_cost_from_grid_without_PV = (price + grid_cost) * cons_kWh   #cost without PV installation, not yet with negative sign
+           , discounted_theo_cost_from_grid_without_PV = discount_factor * theo_cost_from_grid_without_PV # not yet with negative sign
+           , net_cashflow_without_PV = 0 - theo_cost_from_grid_without_PV # already with negative sign
+           , discounted_net_cashflow_without_PV = discount_factor * net_cashflow_without_PV # already with negative sign
+           # value of kWh saved by having PV
+           , hourly_elcons_savings_value = hourly_elcons_savings_kwh * (price + grid_cost) # the value of saved electricity at that hour, i.e. implicit CF 
+           # include maintenance costs spread to each hour
+           , maintenance_costs = params$annual_maintenance_cost / (365.25*24) # not yet with negative sign
+           , discounted_maintenance_costs = discount_factor * maintenance_costs #not yet with negative sign
+           # aux cols not yet discounted
+           , revenue_from_feed_in = feed_in * grid_export
+           , cost_from_grid = (price + grid_cost) * grid_import    #cost with PV installation
+           , net_cashflow_explicit = revenue_from_feed_in - cost_from_grid # only explicit cashflows
+           , net_cashflow_explicit_w_maintenance = net_cashflow_explicit - maintenance_costs # explicit cashflows and maintenance one has to pay
+           #
+           , benefit_wo_maintenance = net_cashflow_explicit - net_cashflow_without_PV # compare CF with PV (without maintenance) and without PV
+           , benefit = net_cashflow_explicit_w_maintenance - net_cashflow_without_PV # compare CF with PV (incl. maintenance) and without PV
+           , benefit_alt = (hourly_elcons_savings_value - maintenance_costs) + revenue_from_feed_in # alternative way to express the benefit
+           # discounted values here:
+           #, DEBUG_discounted_net_cashflow_explicit = net_cashflow_explicit * discount_factor
+           , discounted_net_cashflow_explicit = net_cashflow_explicit * discount_factor
+           , discounted_net_cashflow_explicit_w_maintenance = net_cashflow_explicit_w_maintenance * discount_factor
+           , discounted_benefit_wo_maintenance = benefit_wo_maintenance * discount_factor
+           , discounted_benefit = benefit * discount_factor
+           , discounted_benefit_alt = benefit_alt * discount_factor
+           #, DEBUG_discounted_revenue_from_feed_in = revenue_from_feed_in * discount_factor
+           #, DEBUG_discounted_cost_from_grid = cost_from_grid * discount_factor)
+          )
+  
+  return(energy_flows_w_prices)
+}#endfunction CalculateFinancials_auxMutate
 
-
-
-
-calculate_financials <- function(energy_flows
+CalculateFinancials <- function(energy_flows
                                  , elprice
                                  , feed_in_data
                                  , grid_cost_data
@@ -146,52 +171,37 @@ calculate_financials <- function(energy_flows
   
   # enhance energy flows with prices and calculate financials
   energy_flows_w_prices <- myCombineFlowsPrices(energy_flows = energy_flows, elprice = elprice, feed_in_data = feed_in_data, grid_cost_data = grid_cost_data)
-  energy_flows_w_prices %>% glimpse()
+  # energy_flows_w_prices %>% glimpse()
   
   # calculate present value
-  energy_flows_w_prices <- energy_flows_w_prices %>%
-    mutate(
-     theo_cost_from_grid_without_PV = (price + grid_cost) * cons_kWh   #cost without PV installation, not yet with negative sign
-      , discounted_theo_cost_from_grid_without_PV = discount_factor * theo_cost_from_grid_without_PV # not yet with negative sign
-      , net_cashflow_without_PV = 0 - theo_cost_from_grid_without_PV # already with negative sign
-      , discounted_net_cashflow_without_PV = discount_factor * net_cashflow_without_PV # already with negative sign
-      # value of kWh saved by having PV
-      , hourly_elcons_savings_value = hourly_elcons_savings_kwh * (price + grid_cost) # the value of saved electricity at that hour, i.e. implicit CF 
-      # include maintenance costs spread to each hour
-      , maintenance_costs = params$annual_maintenance_cost / (365.25*24) # not yet with negative sign
-      , discounted_maintenance_costs = discount_factor * maintenance_costs #not yet with negative sign
-      # aux cols not yet discounted
-      , revenue_from_feed_in = feed_in * grid_export
-      , cost_from_grid = (price + grid_cost) * grid_import    #cost with PV installation
-      , net_cashflow_explicit = revenue_from_feed_in - cost_from_grid # only explicit cashflows
-      , net_cashflow = net_cashflow_explicit + hourly_elcons_savings_value  # hourly net CF without maintenance, costs now with negative sign, includes implicit CF, i.e. the value of hourly savings
-      , net_cashflow_w_maintenace = net_cashflow - maintenance_costs  # hourly net CF with maintenance cost reflected
-      , savings = net_cashflow_explicit - maintenance_costs - net_cashflow_without_PV # compare CF with PV (incl. maintenance) and without PV
-      # discounted values here:
-        #, DEBUG_discounted_net_cashflow_explicit = net_cashflow_explicit * discount_factor
-      , discounted_net_cashflow_explicit = net_cashflow_explicit * discount_factor
-      , discounted_net_cashflow = net_cashflow * discount_factor
-      , discounted_net_cashflow_w_maintenace = net_cashflow_w_maintenace * discount_factor
-      , discounted_savings = savings * discount_factor
-       #, DEBUG_discounted_revenue_from_feed_in = revenue_from_feed_in * discount_factor
-       #, DEBUG_discounted_cost_from_grid = cost_from_grid * discount_factor
-      #
-    )
+  energy_flows_w_prices <- energy_flows_w_prices %>% 
+                          CalculateFinancials_auxMutate(params = system_params) 
+     
   if (TRUE==FALSE) {
     #view the new cols in data
-  energy_flows_w_prices %>% filter(grid_import >0) %>% head(10) %>% 
-    select(maintenance_costs, feed_in, grid_cost, price, cons_kWh, grid_export, grid_import, net_cashflow_without_PV
-           ,  revenue_from_feed_in, cost_from_grid, net_cashflow_explicit, net_cashflow
-            , savings, hourly_elcons_savings_kwh, hourly_elcons_savings_value) %>% View()
+  energy_flows_w_prices %>% filter(PV_available>0 & ( grid_export >0.1)) %>% head(10) %>% 
+    select(maintenance_costs, feed_in, grid_cost, price, cons_kWh, PV_available, excess_solar, deficit
+           , grid_export, grid_import, net_cashflow_without_PV
+           , revenue_from_feed_in, cost_from_grid, net_cashflow_explicit, net_cashflow_explicit_w_maintenance
+           , benefit_wo_maintenance, benefit, benefit_alt
+           , hourly_elcons_savings_kwh, hourly_elcons_savings_value) %>% View()
   }#end disabledblock
   
   # create summary to be returned along with the hourly data
   summary_vals <- tibble(
            mindate = energy_flows_w_prices$date %>% min()
            , maxdate = energy_flows_w_prices$date %>% max()
-           , sum_discounted_net_cashflow = sum(energy_flows_w_prices$discounted_net_cashflow)
-           , NPV = sum(energy_flows_w_prices$discounted_net_cashflow) - params$installation_cost - sum(energy_flows_w_prices$discounted_maintenance_costs)
-           , discounted_el_cost_without_PV = sum(energy_flows_w_prices$discounted_net_cashflow_without_PV)
+           , discounted_net_cashflow_without_PV = sum(energy_flows_w_prices$discounted_net_cashflow_without_PV)
+           , discounted_net_cashflow_explicit = sum(energy_flows_w_prices$discounted_net_cashflow_explicit)
+           , discounted_maintenance_costs = paste0( sum(energy_flows_w_prices$discounted_maintenance_costs), " Annually: ", sum(energy_flows_w_prices$discounted_maintenance_costs) / (system_params$system_lifetime))
+           , discounted_net_cashflow_explicit_w_maintenance = sum(energy_flows_w_prices$discounted_net_cashflow_explicit_w_maintenance)
+           #
+           , discounted_benefit_wo_maintenance = sum(energy_flows_w_prices$discounted_benefit_wo_maintenance) 
+           , discounted_benefit = sum(energy_flows_w_prices$discounted_benefit)
+           , discounted_benefit_alt = sum(energy_flows_w_prices$discounted_benefit_alt)
+           , NPV = sum(energy_flows_w_prices$discounted_benefit) - params$installation_cost  #benefit has maintenance costs included, compares with baseline scenario of no PV installation
+           , NPV_alt = sum(energy_flows_w_prices$discounted_benefit_wo_maintenance) - params$installation_cost - sum(energy_flows_w_prices$discounted_maintenance_costs)
+           #
            , total_energy_produced = sum(energy_flows_w_prices$PV_available)
            , grid_export = sum(energy_flows_w_prices$grid_export)
            , grid_import = sum(energy_flows_w_prices$grid_import)
@@ -199,147 +209,135 @@ calculate_financials <- function(energy_flows
            , elcons_saved = household_el_consumption - grid_import
            , feed_in_revenue_nominal = sum(energy_flows_w_prices$revenue_from_feed_in)
            # for LOCE calculation
+           , installation_cost = params$installation_cost 
+           , Present_Value_maintenance_costs = sum(energy_flows_w_prices$discounted_maintenance_costs)
+           , Present_Value_total_cost = (params$installation_cost + sum(energy_flows_w_prices$discounted_maintenance_costs))
            , discounted_total_el_produced = sum(energy_flows_w_prices$discounted_PV_available)
-           , PV_total_cost = (params$installation_cost + sum(energy_flows_w_prices$discounted_maintenance_costs))
-           , LCOE = PV_total_cost / discounted_total_el_produced
+           , LCOE = Present_Value_total_cost / discounted_total_el_produced %>% round(3)
            , DEBUG_elcons_x_price = mean(energy_flows_w_prices$price) * elcons_saved
+           , DEBUG_elprice = paste0("Min: ", min(energy_flows_w_prices$price) %>% round(1), " Max: ", max(energy_flows_w_prices$price) %>% round(1), " Mean: ", mean(energy_flows_w_prices$price) %>% round(1))
+           , DEBUG_feed_in =  paste0("Min: ", min(energy_flows_w_prices$feed_in) %>% round(1), " Max: ", max(energy_flows_w_prices$feed_in) %>% round(1), " Mean: ", mean(energy_flows_w_prices$feed_in) %>% round(1))
+           , DEBUG_grid_cost = paste0("Min: ", min(energy_flows_w_prices$grid_cost) %>% round(1), " Max: ", max(energy_flows_w_prices$grid_cost) %>% round(1), " Mean: ", mean(energy_flows_w_prices$grid_cost) %>% round(1))
           )
-summary_vals %>% glimpse()
+# summary_vals %>% glimpse()
   #prepare output
   output = list(
           summary_vals = summary_vals
           , df_hourly = energy_flows_w_prices
           )
   return(output)
-}#endfunction calculate_financials
-
-
-
+}#endfunction CalculateFinancials
 
 
 # breakeven feed-in tariff main
-breakeven_feed_in <- function(new_fixed_val
-                             , energy_flows
+BreakevenFeedIn <- function(new_fixed_val
+                             , hourly_energy_flows
                              , params = system_params) {
-  energy_flows <- energy_flows %>% mutate(feed_in = new_fixed_val
-                                          # repeat mutate to reflect the new feed_in
-                                          , theo_cost_from_grid_without_PV = (price + grid_cost) * cons_kWh   #cost without PV installation, not yet with negative sign
-                                          , discounted_theo_cost_from_grid_without_PV = discount_factor * theo_cost_from_grid_without_PV # not yet with negative sign
-                                          , net_cashflow_without_PV = 0 - theo_cost_from_grid_without_PV # already with negative sign
-                                          , discounted_net_cashflow_without_PV = discount_factor * net_cashflow_without_PV # already with negative sign
-                                          # value of kWh saved by having PV
-                                          , hourly_elcons_savings_value = hourly_elcons_savings_kwh * (price + grid_cost) # the value of saved electricity at that hour, i.e. implicit CF 
-                                          # include maintenance costs spread to each hour
-                                          , maintenance_costs = params$annual_maintenance_cost / (365.25*24) # not yet with negative sign
-                                          , discounted_maintenance_costs = discount_factor * maintenance_costs #not yet with negative sign
-                                          # aux cols not yet discounted
-                                          , revenue_from_feed_in = feed_in * grid_export
-                                          , cost_from_grid = (price + grid_cost) * grid_import    #cost with PV installation
-                                          , net_cashflow_explicit = revenue_from_feed_in - cost_from_grid # only explicit cashflows
-                                          , net_cashflow = net_cashflow_explicit + hourly_elcons_savings_value  # hourly net CF without maintenance, costs now with negative sign, includes implicit CF, i.e. the value of hourly savings
-                                          , net_cashflow_w_maintenace = net_cashflow - maintenance_costs  # hourly net CF with maintenance cost reflected
-                                          , savings =  net_cashflow_explicit - maintenance_costs - net_cashflow_without_PV # compare CF with PV and without PV
-                                          # discounted values here:
-                                          #, DEBUG_discounted_net_cashflow_explicit = net_cashflow_explicit * discount_factor
-                                          , discounted_net_cashflow_explicit = net_cashflow_explicit * discount_factor
-                                          , discounted_net_cashflow = net_cashflow * discount_factor
-                                          , discounted_net_cashflow_w_maintenace = net_cashflow_w_maintenace * discount_factor
-                                          , discounted_savings = savings * discount_factor
-                                          )
+  hourly_energy_flows <- hourly_energy_flows %>% mutate(feed_in = new_fixed_val) %>%
+                                    # repeat mutate to reflect the new feed_in  
+                                  CalculateFinancials_auxMutate(params = system_params) 
+                                    
   
-  new_NPV <- sum(energy_flows$discounted_net_cashflow) - params$installation_cost - sum(energy_flows$discounted_maintenance_costs)
+  new_NPV <- sum(hourly_energy_flows$discounted_benefit) - params$installation_cost
   return(new_NPV)
-}#endfunction breakeven_feed_in
+}#endfunction BreakevenFeedIn
 
 # breakeven electricity price main
-breakeven_price <- function(new_fixed_val
+BreakevenPrice <- function(new_fixed_val
                             , hourly_energy_flows
                             , params = system_params) {
   
-  hourly_energy_flows <- hourly_energy_flows %>% mutate(price = new_fixed_val
+  hourly_energy_flows <- hourly_energy_flows %>% mutate(price = new_fixed_val) %>%
                                           # repeat mutate to reflect the new price
-                                          , theo_cost_from_grid_without_PV = (price + grid_cost) * cons_kWh   #cost without PV installation, not yet with negative sign
-                                          , discounted_theo_cost_from_grid_without_PV = discount_factor * theo_cost_from_grid_without_PV # not yet with negative sign
-                                          , net_cashflow_without_PV = 0 - theo_cost_from_grid_without_PV # already with negative sign
-                                          , discounted_net_cashflow_without_PV = discount_factor * net_cashflow_without_PV # already with negative sign
-                                          # value of kWh saved by having PV
-                                          , hourly_elcons_savings_value = hourly_elcons_savings_kwh * (price + grid_cost) # the value of saved electricity at that hour, i.e. implicit CF 
-                                          # include maintenance costs spread to each hour
-                                          , maintenance_costs = params$annual_maintenance_cost / (365.25*24) # not yet with negative sign
-                                          , discounted_maintenance_costs = discount_factor * maintenance_costs #not yet with negative sign
-                                          # aux cols not yet discounted
-                                          , revenue_from_feed_in = feed_in * grid_export
-                                          , cost_from_grid = (price + grid_cost) * grid_import    #cost with PV installation
-                                          , net_cashflow_explicit = revenue_from_feed_in - cost_from_grid # only explicit cashflows
-                                          , net_cashflow = net_cashflow_explicit + hourly_elcons_savings_value  # hourly net CF without maintenance, costs now with negative sign, includes implicit CF, i.e. the value of hourly savings
-                                          , net_cashflow_w_maintenace = net_cashflow - maintenance_costs  # hourly net CF with maintenance cost reflected
-                                          , savings =  net_cashflow_explicit - maintenance_costs - net_cashflow_without_PV # compare CF with PV and without PV
-                                          # discounted values here:
-                                          #, DEBUG_discounted_net_cashflow_explicit = net_cashflow_explicit * discount_factor
-                                          , discounted_net_cashflow_explicit = net_cashflow_explicit * discount_factor
-                                          , discounted_net_cashflow = net_cashflow * discount_factor
-                                          , discounted_net_cashflow_w_maintenace = net_cashflow_w_maintenace * discount_factor
-                                          , discounted_savings = savings * discount_factor
-  )
-
+                                  CalculateFinancials_auxMutate(params = system_params)
   
-  new_NPV <- sum(hourly_energy_flows$discounted_net_cashflow) - params$installation_cost - sum(hourly_energy_flows$discounted_maintenance_costs)
+  new_NPV <- sum(hourly_energy_flows$discounted_benefit) - params$installation_cost
   return(new_NPV)
-}
+}#endfunction BreakevenPrice
 
 # auxiliary function to provide closure (to pass more than one parameter)
-find_breakeven_feed_in <- function(hourly_energy_flows, params = system_params) {
+FindBreakevenFeedIn <- function(hourly_energy_flows, params = system_params) {
   # closure to allow uniroot to read energy_flows and system_params
-  breakeven_feed_in_fixed <- function(new_fixed_val) {
-    breakeven_feed_in(new_fixed_val, hourly_energy_flows, params)
+  BreakevenFeedIn_fixed <- function(new_fixed_val) {
+    BreakevenFeedIn(new_fixed_val, hourly_energy_flows, params)
   }
   
   #use uniroot with closure
-  result <- uniroot(breakeven_feed_in_fixed, lower = -1*10^3, upper = 10^4)
+  result <- uniroot(BreakevenFeedIn_fixed, lower = -1*10^3, upper = 10^4)
   return(result$root)  # Return the root directly
-}#endfunction find_breakeven_feed_in
+}#endfunction FindBreakevenFeedIn
 
 # auxiliary function to provide closure (to pass more than one parameter)
-find_breakeven_price <- function(hourly_energy_flows, params = system_params) {
+FindBreakevenPrice <- function(hourly_energy_flows, params = system_params) {
   # closure to allow uniroot to read energy_flows and system_params
-  breakeven_price_fixed <- function(new_fixed_val) {
-    breakeven_price(new_fixed_val, hourly_energy_flows, params)
+  BreakevenPrice_fixed <- function(new_fixed_val) {
+    BreakevenPrice(new_fixed_val, hourly_energy_flows, params)
   }
 
   #use uniroot with closure
-  result <- uniroot(breakeven_price_fixed, lower = -1*10^3, upper = 10^4)
+  result <- uniroot(BreakevenPrice_fixed, lower = -1*10^3, upper = 10^4)
   return(result$root)  # Return the root directly
-}#endfunction find_breakeven_price
+}#endfunction FindBreakevenPrice
 
 
 # plot values in selected day (hourly)
-plot_selected_day <- function(day, hourly_energy_flows = energy_flows_enh$df_hourly) {
-  df <- energy_flows %>% filter(date == day)
+plotDay <- function(which_day, hourly_energy_flows, params = system_params) {
+  which_day <- ConvertTextToDate(which_day)
+  df <- hourly_energy_flows %>% filter(date == which_day)
   
-  ggplot(df, aes(x = hour)) +
-    geom_line(aes(y = PV_available, color = "PV Production")) +
-    geom_line(aes(y = total_demand, color = "Total Demand")) +
-    geom_line(aes(y = battery_soc, color = "Battery SoC")) +
-    geom_line(aes(y = grid_import, color = "Grid Import"), linetype = "dashed") +
-    geom_line(aes(y = grid_export, color = "Grid Export"), linetype = "dotted") +
+  range_primary_y <- range(c(df$PV_available, df$total_demand, df$grid_import, df$grid_export), na.rm = TRUE)
+  range_battery_soc <- c(0, params$battery_capacity_kwh)  # Min 0, Max battery capacity
+  
+  # Battery SoC to match primary y-axis scale
+  scale_battery_to_primary <- function(x) {
+    (x - range_battery_soc[1]) / (range_battery_soc[2] - range_battery_soc[1]) * 
+      (range_primary_y[2] - range_primary_y[1]) + range_primary_y[1]
+  }
+  
+  # Inverse scaling for the secondary y-axis
+  scale_primary_to_battery <- function(y) {
+    (y - range_primary_y[1]) / (range_primary_y[2] - range_primary_y[1]) * 
+      (range_battery_soc[2] - range_battery_soc[1]) + range_battery_soc[1]
+  }
+  
+  ggplot() +
+    geom_line(data = df, aes(x = hour, y = PV_available, color = "PV Production")) +
+    geom_line(data = df, aes(x = hour, y = total_demand, color = "Total Demand")) +
+    geom_line(data = df, aes(x = hour, y = grid_import, color = "Grid Import"), linetype = "dashed") +
+    geom_line(data = df, aes(x = hour, y = grid_export, color = "Grid Export"), linetype = "dotdash") +
+    #rescaled Battery SoC
+    geom_line(data = df, aes(x = hour, y = scale_battery_to_primary(battery_soc), 
+                  color = "Battery SoC"), linetype = "dotted") +
     labs(title = paste("Energy Flow on", day), x = "Hour", y = "kWh") +
     scale_color_manual(values = c("PV Production" = "orange", "Total Demand" = "red",
-                                  "Battery SoC" = "blue", "Grid Import" = "black", "Grid Export" = "green")) +
+                                  "Battery SoC" = "blue", "Grid Import" = "black", "Grid Export" = "darkgreen")) +
+    scale_y_continuous(
+      sec.axis = sec_axis(~ scale_primary_to_battery(.), name = "Battery SoC (kWh)")
+    ) +
     theme_minimal()
-}
+}#endfunction plotDay
 
 # plot selected week (hourly)
-plot_selected_week <- function(start_day) {
-  df <- energy_flows %>% filter(date >= start_day & date < (start_day + days(7)))
+plotWeek <- function(start_day, hourly_energy_flows, params = system_params) {
+  start_day <- ConvertTextToDate(start_day)
+  df <- hourly_energy_flows %>% filter(date >= start_day & date < (start_day + days(7)))
   
-  ggplot(df, aes(x = datetime)) +
-    geom_line(aes(y = PV_available, color = "PV Production")) +
-    geom_line(aes(y = total_demand, color = "Total Demand")) +
-    geom_line(aes(y = battery_soc, color = "Battery SoC")) +
+  ggplot() +
+    geom_line(data = df, aes(x = datetime, y = PV_available, color = "PV Production")) +
+    geom_line(data = df, aes(x = datetime, y = total_demand, color = "Total Demand")) +
+    geom_line(data = df, aes(x = datetime, y = grid_import, color = "Grid Import"), linetype = "dashed") +
+    geom_line(data = df, aes(x = datetime, y = grid_export, color = "Grid Export"), linetype = "dotdash") +
+    geom_line(data = df, aes(x = datetime, y = scale_battery_to_primary(battery_soc), 
+                             color = "Battery SoC"), linetype = "dotted") +
     labs(title = paste("Energy Flow from", start_day, "to", start_day + days(6)),
          x = "Date-Time", y = "kWh") +
-    scale_color_manual(values = c("PV Production" = "orange", "Total Demand" = "red", "Battery SoC" = "blue")) +
+    labs(title = paste("Energy Flow on", day), x = "Hour", y = "kWh") +
+    scale_color_manual(values = c("PV Production" = "orange", "Total Demand" = "red",
+                                  "Battery SoC" = "blue", "Grid Import" = "black", "Grid Export" = "darkgreen")) +
+    scale_y_continuous(
+      sec.axis = sec_axis(~ scale_primary_to_battery(.), name = "Battery SoC (kWh)")
+    ) +
     theme_minimal()
-}
+}#endfunction plotWeek
 
 

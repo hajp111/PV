@@ -179,22 +179,23 @@ energy_flows_enh <- CalculateFinancials(energy_flows
 energy_flows_enh$summary_vals %>% glimpse()
 
 if (TRUE==FALSE) {
-  energy_flows_enh$df_hourly %>% filter(grid_import >0 & PV_available>0) %>% head(10) %>% 
+  energy_flows_enh$df_hourly %>% filter(PV_available>0 & ( grid_export >0.1)) %>% head(10) %>% 
     select(maintenance_costs, feed_in, grid_cost, price, cons_kWh, PV_available, excess_solar, deficit
            , grid_export, grid_import, net_cashflow_without_PV
-           ,  revenue_from_feed_in, cost_from_grid, net_cashflow_explicit, net_cashflow, net_cashflow_w_maintenace
-           , savings, savings_alt, hourly_elcons_savings_kwh, hourly_elcons_savings_value) %>% View()
+           , revenue_from_feed_in, cost_from_grid, net_cashflow_explicit, net_cashflow_explicit_w_maintenance
+           , benefit_wo_maintenance, benefit, benefit_alt
+           , hourly_elcons_savings_kwh, hourly_elcons_savings_value) %>% View()
 }#end disabled block
 
-estim_breakeven_feed_in <- FindBreakevenFeedIn(energy_flows = energy_flows_enh$df_hourly, params = system_params)
+estim_breakeven_feed_in <- FindBreakevenFeedIn(hourly_energy_flows = energy_flows_enh$df_hourly, params = system_params)
 cat("Breakeven Feed-in Tariff:", round(estim_breakeven_feed_in, 3), "CZK/kWh\n"
     , " (with given el. prices (mean price: ", mean(energy_flows_enh$df_hourly$price, na.rm = TRUE)  ,"CZK/kWh))\n")
-estim_breakeven_price <- FindBreakevenPrice(energy_flows = energy_flows_enh$df_hourly, params = system_params)
+estim_breakeven_price <- FindBreakevenPrice(hourly_energy_flows = energy_flows_enh$df_hourly, params = system_params)
 cat("Breakeven Electricity Price :", round(estim_breakeven_price, 3), "CZK/kWh\n"
     , " (with given feed-in tariff (mean feed-in: ", mean(energy_flows_enh$df_hourly$feed_in, na.rm = TRUE)  ,"CZK/kWh))\n")
 
 
 
 # inspect plots
-plot_selected_day("2022-07-15")
-plot_selected_week("2022-07-10")
+plotDay("2024-07-15", energy_flows_enh$df_hourly)
+plotWeek("2024-07-10", energy_flows_enh$df_hourly)
