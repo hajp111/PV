@@ -14,11 +14,12 @@ library(prophet)
 #library(ggplotly)
 #--------------#
 
-source("aux_functions.R")
-
+source("R_functions/aux_functions.R")
+print("this is electricity_price.R file")
 
 #### define functions ####
 my_data_read_distrib_costs_observed_data <- function(filepath = "_static_data/cena_distribuce.xlsx") {
+  print(paste0("Reading from: ", filepath))
   distribution_costs <- readxl::read_excel(filepath, sheet = 1, range = "A7:D29") %>%
     rename(year = Rok, distr_costs = distribuce_prumer, service_costs = regulovane_slozky, valid_from = platnost_od) %>%
     mutate(grid_cost = distr_costs+service_costs
@@ -31,9 +32,12 @@ my_data_read_distrib_costs_observed_data <- function(filepath = "_static_data/ce
   return(distribution_costs)
 }#endfunction my_data_read_distrib_costs_observed_data
 
-my_data_read_elprice_observed_data <- function(filepath = "_static_data/Czechia.csv"
+#wholesale prices ! 
+my_data_read_elprice_observed_data <- function(multiply_wholesale_by = 1.2 #wholesale prices -> actual prices usually higher (profit margin)
+                                               , filepath = "_static_data/Czechia.csv"
                                                , filepath_fx = "_static_data/ECB_Data_Portal_long_20250207083750.xlsx") {
   # read el prices for CZ from eurostat
+  print(paste0("Reading from: ", filepath))
   elprice_cz <- readr::read_csv(file = filepath) %>%
     mutate(
       # for datetime, use fixed timezone (no summer time, because with summer time, I get 2 observations for same hour or a missing obs.):
@@ -55,10 +59,11 @@ my_data_read_elprice_observed_data <- function(filepath = "_static_data/Czechia.
   
   # convert EUR to CZK prices
   elprice_czk <- elprice_cz %>% left_join(fxrate %>% select(date, EURCZK), by = "date") %>%
-    mutate(price_CZK_kWh = `Price (EUR/MWhe)`* EURCZK / 10^3) %>%
+    mutate(price_CZK_kWh = `Price (EUR/MWhe)`* EURCZK / 10^3
+           , price_CZK_kWh_retail = price_CZK_kWh * multiply_wholesale_by) %>%
     rename(datetime = datetime_fixed) %>%
-    select(datetime, date, year, month, day, hour,  price_CZK_kWh) %>%
-    rename(price = price_CZK_kWh)
+    select(datetime, date, year, month, day, hour, price_CZK_kWh_retail) %>%
+    rename(price = price_CZK_kWh_retail)
   
   # check duplicates
   if ( elprice_czk %>% count(datetime) %>% filter(n > 1) %>% nrow() >1) {warning("Duplicated values found!")}
@@ -478,76 +483,80 @@ my_elprice <- function(df
     mutate(# noise_multiplier1 = sample(c(-1, 1), size = n(), replace = TRUE)
       price = price_method + generated_hour_component + generated_week_component)
   
-  return(future_prices)
+  
+  plt <- ggplot() + 
+    geom_line(data = future_prices, aes(x=year, y = price), alpha = 0.3) +
+    theme_minimal()
+  
+  output <- list(plot = plt, price_data = future_prices)
+  
+  return(output)
 }#endfunction my_elprice
 
 
-# using Meta's prophet algorithm 
-my_elprice_2 <- function(df
-                          , years = 20
-                          , startdate = '2025-01-01' %>% as.Date() %>% with_tz(`Datetime (UTC)`, tzone = "Etc/GMT-1") 
-                          , method = "prophet"
-                          , fixed_seed = TRUE
-                          , changepoint_prior = 0.05
-                          , seasonality_mode = "multiplicative"
-                          , interval_width = 0.8
-                          , custom_seasonality = TRUE
-) {
-  if (fixed_seed) {set.seed(123)}
-  
-  if (!all(c("datetime", "price") %in% names(df))) {
-    stop("Input dataframe probably wrong, expected 'datetime' and 'price' columns")
-  }
-  
-  last_price <- tail(df$price, 1)
-  future_timestamps <- seq( startdate, by = "1 hour", length.out = years * 8760)
-  future_prices_step0 <- tibble(datetime = future_timestamps) %>%
-    mutate(year = year(datetime)
-           , month = month(datetime)
-           , day = day(datetime)
-           , hour = hour(datetime)
-           , weekday = wday(datetime, week_start = 1))
-  
-  if (method == "prophet") {
-    df_prophet <- df %>%
-      rename(ds = datetime, y = price) %>%  #required names by prophet package
-      select(ds, y)
-    
-    model <- prophet(
-      changepoint.prior.scale = changepoint_prior,
-      seasonality.mode = seasonality_mode,
-      interval.width = interval_width
-    )
-    
-    # add custom seasonality?
-    if (custom_seasonality) {
-      model <- add_seasonality(
-        model, 
-        name = "daily", 
-        period = 24, 
-        fourier.order = 10
-      ) %>% 
-        #add_seasonality(name = "yearly", period = 365.25, fourier.order = 10) %>%
-        add_seasonality(name = "weekly", period = 24*7, fourier.order = 10)
-    }#end custom seasonality
-    
-    model <- fit.prophet(model, df_prophet)
-    
-    future_df <- tibble(ds = future_timestamps)
-    forecast <- predict(model, future_df) # %>% select(ds, yhat)
-    
-    future_prices <- future_prices_step0 %>%
-      left_join(forecast, by = c("datetime" = "ds")) %>%
-      rename(price = yhat)
-    
-  } else {
-    stop("Unknown method, stopping.")
-  }
-  
-  return(future_prices)
-}#endfunction my_forecast_2
-
-
-
+# # using Meta's prophet algorithm 
+# my_elprice_2 <- function(df
+#                           , years = 20
+#                           , startdate = '2025-01-01' %>% as.Date() %>% with_tz(`Datetime (UTC)`, tzone = "Etc/GMT-1") 
+#                           , method = "prophet"
+#                           , fixed_seed = TRUE
+#                           , changepoint_prior = 0.05
+#                           , seasonality_mode = "multiplicative"
+#                           , interval_width = 0.8
+#                           , custom_seasonality = TRUE
+# ) {
+#   if (fixed_seed) {set.seed(123)}
+#   
+#   if (!all(c("datetime", "price") %in% names(df))) {
+#     stop("Input dataframe probably wrong, expected 'datetime' and 'price' columns")
+#   }
+#   
+#   last_price <- tail(df$price, 1)
+#   future_timestamps <- seq( startdate, by = "1 hour", length.out = years * 8760)
+#   future_prices_step0 <- tibble(datetime = future_timestamps) %>%
+#     mutate(year = year(datetime)
+#            , month = month(datetime)
+#            , day = day(datetime)
+#            , hour = hour(datetime)
+#            , weekday = wday(datetime, week_start = 1))
+#   
+#   if (method == "prophet") {
+#     df_prophet <- df %>%
+#       rename(ds = datetime, y = price) %>%  #required names by prophet package
+#       select(ds, y)
+#     
+#     model <- prophet(
+#       changepoint.prior.scale = changepoint_prior,
+#       seasonality.mode = seasonality_mode,
+#       interval.width = interval_width
+#     )
+#     
+#     # add custom seasonality?
+#     if (custom_seasonality) {
+#       model <- add_seasonality(
+#         model, 
+#         name = "daily", 
+#         period = 24, 
+#         fourier.order = 10
+#       ) %>% 
+#         #add_seasonality(name = "yearly", period = 365.25, fourier.order = 10) %>%
+#         add_seasonality(name = "weekly", period = 24*7, fourier.order = 10)
+#     }#end custom seasonality
+#     
+#     model <- fit.prophet(model, df_prophet)
+#     
+#     future_df <- tibble(ds = future_timestamps)
+#     forecast <- predict(model, future_df) # %>% select(ds, yhat)
+#     
+#     future_prices <- future_prices_step0 %>%
+#       left_join(forecast, by = c("datetime" = "ds")) %>%
+#       rename(price = yhat)
+#     
+#   } else {
+#     stop("Unknown method, stopping.")
+#   }
+#   
+#   return(future_prices)
+# }#endfunction my_forecast_2
 
 
