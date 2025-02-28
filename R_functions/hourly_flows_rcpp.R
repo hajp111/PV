@@ -71,7 +71,7 @@ myCombineFlowsPrices <- function(energy_flows
 
 #### define functions for hourly flows ####
 # the function calculates each year separately to improve performance
-CalculateEnergyFlows <- function(dat, params = system_params) {
+CalculateEnergyFlows <- function(dat, params) {
   tic()
   #load C code
   sourceCpp("R_functions/yearly_calc.cpp") 
@@ -165,7 +165,7 @@ CalculateFinancials <- function(energy_flows
                                  , elprice
                                  , feed_in_data
                                  , grid_cost_data
-                                 , params = system_params
+                                 , params
                                  ) {
   
   #DEBUG change elprice
@@ -234,7 +234,7 @@ CalculateFinancials <- function(energy_flows
 # breakeven feed-in tariff main
 BreakevenFeedIn <- function(new_fixed_val
                              , hourly_energy_flows
-                             , params = system_params) {
+                             , params) {
   hourly_energy_flows <- hourly_energy_flows %>% mutate(feed_in = new_fixed_val) %>%
                                     # repeat mutate to reflect the new feed_in  
                                   CalculateFinancials_auxMutate(params = params) 
@@ -247,7 +247,7 @@ BreakevenFeedIn <- function(new_fixed_val
 # breakeven electricity price main
 BreakevenPrice <- function(new_fixed_val
                             , hourly_energy_flows
-                            , params = system_params) {
+                            , params) {
   
   hourly_energy_flows <- hourly_energy_flows %>% mutate(price = new_fixed_val) %>%
                                           # repeat mutate to reflect the new price
@@ -258,7 +258,7 @@ BreakevenPrice <- function(new_fixed_val
 }#endfunction BreakevenPrice
 
 # auxiliary function to provide closure (to pass more than one parameter)
-FindBreakevenFeedIn <- function(hourly_energy_flows, params = system_params) {
+FindBreakevenFeedIn <- function(hourly_energy_flows, params) {
   # closure to allow uniroot to read energy_flows and system_params
   BreakevenFeedIn_fixed <- function(new_fixed_val) {
     BreakevenFeedIn(new_fixed_val, hourly_energy_flows, params)
@@ -270,7 +270,7 @@ FindBreakevenFeedIn <- function(hourly_energy_flows, params = system_params) {
 }#endfunction FindBreakevenFeedIn
 
 # auxiliary function to provide closure (to pass more than one parameter)
-FindBreakevenPrice <- function(hourly_energy_flows, params = system_params) {
+FindBreakevenPrice <- function(hourly_energy_flows, params) {
   # closure to allow uniroot to read energy_flows and system_params
   BreakevenPrice_fixed <- function(new_fixed_val) {
     BreakevenPrice(new_fixed_val, hourly_energy_flows, params)
@@ -296,7 +296,7 @@ scale_primary_to_secondary <- function(y, range_primary_y, range_secondary_y) {
 }#endfunction scale_primary_to_secondary
 
 # plot values in selected day (hourly)
-plotDay <- function(which_day, hourly_energy_flows, params = system_params) {
+plotDay <- function(which_day, hourly_energy_flows, params) {
   which_day <- ConvertTextToDate(which_day)
   df <- hourly_energy_flows %>% filter(date == which_day)
   
@@ -323,7 +323,7 @@ plotDay <- function(which_day, hourly_energy_flows, params = system_params) {
 }#endfunction plotDay
 
 # plot selected week (hourly)
-plotWeek <- function(start_day, hourly_energy_flows, params = system_params) {
+plotWeek <- function(start_day, hourly_energy_flows, params) {
   start_day <- ConvertTextToDate(start_day)
   df <- hourly_energy_flows %>% filter(date >= start_day & date < (start_day + days(7)))
   range_primary_y <- range(c(df$PV_available, df$total_demand, df$grid_import, df$grid_export), na.rm = TRUE)
@@ -349,7 +349,7 @@ plotWeek <- function(start_day, hourly_energy_flows, params = system_params) {
 
 
 #plotPrices
-plotPrices <- function(start_day, range = 5, energy_flows, params = system_params) {
+plotPrices <- function(start_day, range = 5, energy_flows, params) {
   start_day <- ConvertTextToDate(start_day)
   df <- energy_flows %>% filter(date >= start_day & date<= start_day +lubridate::days(range))
   

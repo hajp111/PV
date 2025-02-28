@@ -209,8 +209,8 @@ cat("Breakeven Electricity Price :", round(estim_breakeven_price, 3), "CZK/kWh\n
 
 
 # inspect plots
-plotDay("2024-07-15", energy_flows_enh$df_hourly)
-plotWeek("2024-07-10", energy_flows_enh$df_hourly)
+plotDay("2024-07-15", energy_flows_enh$df_hourly, system_params)
+plotWeek("2024-07-10", energy_flows_enh$df_hourly, system_params)
 plotPrices("2024-07-10", range = 5, energy_flows_enh$df_hourly, params = system_params)
 
 enflows_grp_day <- energy_flows_enh$df_hourly %>% group_by(date) %>% 
