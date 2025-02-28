@@ -30,9 +30,9 @@ system_params <- list(
   , PV_aspect = 0          # azimuth angle (0° = South, 90° = West)
   , PV_peakpower = 4.5     # in kWp
   , PV_angle = 30          #  Inclination angle (0° = horizontal)
-  , PV_aspect =0           # Azimuth angle (0° = South, 90° = West)
-  , PV_optimalangles = 0   # optimal angle and inclination
-  , PV_trackingtype = 0    # Type of suntracking used, 0=fixed
+  , PV_aspect = 0           # Azimuth angle (0° = South, 90° = West)
+  #, PV_optimalangles = 0   # optimal angle and inclination
+  #, PV_trackingtype = 0    # Type of suntracking used, 0=fixed
   , PV_add_PV_noise = 0.0  # multiplier of the original used to add some noise to the P values (0.2 means some value from 0.8P to 1.2P)
   # household characteristic
   , HH_annual_consumption = 3         # in MWh annually

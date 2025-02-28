@@ -50,6 +50,18 @@ myCombineFlowsPrices <- function(energy_flows
   feed_in_data <- feed_in_data %>% select(datetime, date, hour, feed_in)
   grid_cost_data <- grid_cost_data %>% select(datetime, date, hour, grid_cost)
   
+  cat("Dimensions before joins: energy_flows:", dim(energy_flows), 
+      "elprice:", dim(elprice), 
+      "feed_in:", dim(feed_in_data), 
+      "grid_cost:", dim(grid_cost_data), "\n")
+  
+  # Check for matching keys
+  cat("Date range in energy_flows:", min(energy_flows$date), "to", max(energy_flows$date), "\n")
+  cat("Date range in elprice:", min(elprice$date), "to", max(elprice$date), "\n")
+  cat("Date range in feed_in:", min(feed_in_data$date), "to", max(feed_in_data$date), "\n")
+  cat("Date range in grid_cost:", min(grid_cost_data$date), "to", max(grid_cost_data$date), "\n")
+  
+  
   out <- energy_flows %>%
     inner_join(elprice, by = c("datetime", "date", "hour") ) %>%
     inner_join(feed_in_data, by = c("datetime", "date", "hour")) %>%
@@ -65,6 +77,8 @@ myCombineFlowsPrices <- function(energy_flows
     #   , weekday = lubridate::wday(date, week_start = getOption("lubridate.week.start", 1))
     #   , is_weekend = weekday %in% c(6,7)
     # )
+  
+  cat("Dimensions after joins:", dim(out), "\n")
   return(out)  
 }#endfunction myCombineFlowsPrices
 
