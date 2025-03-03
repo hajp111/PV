@@ -5,18 +5,29 @@ library(leaflet)
 library(shinythemes)
 library(plotly)
 
+
+
 ui <- fluidPage(
+    shinyjs::useShinyjs(),  # Add this line
+    
     # Add error display area
     tags$div(id = "error-space", style = "color: red; margin: 10px;"),
     
     theme = shinytheme("flatly"),
-    titlePanel("Solar Battery System Analyzer"),
+    titlePanel("PV Analyzer"),
     sidebarLayout(
         sidebarPanel(
             h4("Controls"),
             
             actionButton("load_data", "1. Load Energy Data", class = "btn-primary"),
             actionButton("calculate_financials", "2. Calculate Financials", class = "btn-success"),
+            
+            #DEBUG change tab
+            #actionButton("testSwitch", "Test Tab Switch"),
+            
+            #button for session reload
+            actionButton("reset_app", "Reset App"),
+            
             
             checkboxInput("use_cache_data", "Use Cached Data", value = FALSE),
             checkboxInput("fixed_seed", "Fixed Seed", value = TRUE),
@@ -30,12 +41,12 @@ ui <- fluidPage(
             h4("Date Range"),
             dateInput("start_date", "Start Date", value = "2022-01-01"),
             numericInput("system_lifetime", "System Lifetime (years)",
-                         value = 2, min = 1, step = 1)
+                         value = 20, min = 1, step = 1, max = 50)
         ),
         
         mainPanel(
-            tabsetPanel(
-                tabPanel("Battery Parameters",
+            tabsetPanel( id = "mainPanelTabs"
+                , tabPanel("Battery Parameters",
                          numericInput("battery_capacity_kwh", "Capacity (kWh)", 10, min = 0),
                          numericInput("battery_charge_efficiency", "Charge Efficiency", 0.95, min = 0, max = 1, step = 0.01),
                          helpText("Value between 0 and 1. When charging with E kWh, stored energy is E × efficiency"),
@@ -48,9 +59,9 @@ ui <- fluidPage(
                          numericInput("battery_max_soc", "Max SOC (%)", 100, min = 0, max = 100),
                          helpText("Maximum state of charge (100% = full capacity)"),
                          numericInput("battery_degradation", "Degradation Rate/year", 0.01, min = 0, max = 1, step = 0.001),
-                         helpText("Annual battery capacity degradation rate (decimal, e.g., 0.01 = 1%)")),
+                         helpText("Annual battery capacity degradation rate (decimal, e.g., 0.01 = 1%)"))
                 
-                tabPanel("PV Parameters",
+                , tabPanel("PV Parameters",
                          numericInput("PV_peakpower", "Peak Power (kWp)", 4.5, min = 0),
                          numericInput("PV_system_loss", "System Loss (%)", 14, min = 0, max = 100),
                          helpText("Overall system losses in percent"),
@@ -63,20 +74,20 @@ ui <- fluidPage(
                          numericInput("PV_system_own_consumption", "System Consumption (kWh/h)", 0.03, min = 0),
                          helpText("Constant energy consumption of the PV system (inverter, etc.)"),
                          numericInput("PV_add_PV_noise", "PV Noise Multiplier", 0.0, min = 0),
-                         helpText("Adds random variation to PV output (0.2 means ±20% variation)")),
+                         helpText("Adds random variation to PV output (0.2 means ±20% variation)"))
                 
-                tabPanel("Financials",
+                , tabPanel("Financials",
                          numericInput("installation_cost", "Installation Cost (CZK)", 200000, min = 0),
                          numericInput("annual_maintenance_cost", "Annual Maintenance (CZK)", 4000, min = 0),
                          numericInput("discount_rate", "Discount Rate", 0.03, min = 0, max = 1, step = 0.01),
-                         helpText("Annual discount rate for NPV calculations (decimal, e.g., 0.03 = 3%)")),
+                         helpText("Annual discount rate for NPV calculations (decimal, e.g., 0.03 = 3%)"))
                 
-                tabPanel("Household",
+                , tabPanel("Household",
                          numericInput("HH_annual_consumption", "Annual Consumption (MWh)", 3, min = 0),
                          numericInput("HH_add_cons_multiplier", "Consumption Noise Multiplier", 0.0, min = 0),
-                         helpText("Adds random variation to consumption (0.2 means ±20% variation)")),
+                         helpText("Adds random variation to consumption (0.2 means ±20% variation)"))
                 
-                tabPanel("Electricity Prices",
+                , tabPanel("Electricity Prices",
                          selectInput("elprice_method", "Price Method",
                                      choices = c("static", "linear", "historical", "historical_w_growth",
                                                  "random_walk", "random_walk_trend", "mean_reverting_rw")),
@@ -86,28 +97,38 @@ ui <- fluidPage(
                          checkboxInput("elprice_add_intraday_variability", "Intraday Variability", TRUE),
                          helpText("Add daily price patterns"),
                          checkboxInput("elprice_add_intraweek_variability", "Intraweek Variability", TRUE),
-                         helpText("Add weekday price patterns")),
+                         helpText("Add weekday price patterns"))
                 
-                tabPanel("Feed-in Tariff",
+                , tabPanel("Feed-in Tariff",
                          selectInput("feedin_method", "Method", choices = c("last_w_growth")),
                          numericInput("feedin_lastval", "Last Value (CZK/kWh)", 1.1, min = 0),
                          numericInput("feedin_annual_growth", "Annual Growth", 0.01, step = 0.01),
-                         helpText("Annual feed-in tariff growth rate (decimal, e.g., 0.01 = 1%)")),
+                         helpText("Annual feed-in tariff growth rate (decimal, e.g., 0.01 = 1%)"))
                 
-                tabPanel("Grid Costs",
+                , tabPanel("Grid Costs",
                          selectInput("gridcost_method", "Method", 
                                      choices = c("static", "linear", "last_w_growth")),
                          numericInput("gridcost_annual_growth", "Annual Growth", 0.04, step = 0.01),
-                         helpText("Annual grid cost growth rate (decimal, e.g., 0.04 = 4%)")),
-                
-                # output results
-                tabPanel("Results",
+                         helpText("Annual grid cost growth rate (decimal, e.g., 0.04 = 4%)"))
+           
+                , tabPanel("Observe Input Data Charts",
+                         plotOutput("elconsPlot"),
+                         plotOutput("solarPlot"),
+                         plotOutput("gridCostPlot"),
+                         plotOutput("feedInPlot"),
+                         plotOutput("elpricePlot")
+                )
+                , tabPanel("Results",
                          dateInput("plot_date", "Select Date", value = Sys.Date()),
                          h3("Financial Summary"),
                          tableOutput("summary_table"),
                          h3("Hourly Energy Flows"),
                          plotlyOutput("energy_plot"),
-                         helpText("Plot shows energy flows and battery state for the selected date"))
+                         helpText("Plot shows energy flows and battery state for the selected date"),
+                         downloadButton("download_summary", "Download Summary (Excel)", class = "btn btn-primary"),
+                         downloadButton("download_hourly", "Download Hourly Data (Excel)", class = "btn btn-success")
+                )
+         
             )
         )
     )

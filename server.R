@@ -1,9 +1,40 @@
 ####  server.R
+library(shinyjs)
+
 server <- function(input, output, session) {
+    
+    print("hiding calculate_financials button")
+    shinyjs::hide("calculate_financials")
+    # hide the results tabs 
+    shinyjs::hide("chartsTab")
+    shinyjs::hide("resultsTab")
+
+    # Show modal on app start
+    showModal(modalDialog(
+        title = "Welcome to the PV evaluator",
+        "Please follow these steps:",
+        tags$ol(
+            tags$li("Browse the tabs and set the values of parameters."),
+            tags$li("Click the 'Load Energy Data' button and wait until the data is loaded."),
+            tags$li("Click the 'Calculate Financials' button and wait until the calculations are done"),
+            tags$li("See the results on the Results tab.")
+        ),
+        footer = modalButton("Got it!")
+    ))#end modal
+    
     # Reactive values to store intermediate results
     system_params <- reactiveVal(NULL)
     energy_flows <- reactiveVal(NULL)
     final_results <- reactiveVal(NULL)
+    # Reactive flag to see if 2nd step is done
+    calculations_done <- reactiveVal(FALSE)
+    
+    solar <- reactiveVal(NULL)
+    elcons <- reactiveVal(NULL)
+    
+    grid_cost <- reactiveVal(NULL)
+    feed_in <- reactiveVal(NULL)
+    elprice <- reactiveVal(NULL)
     
     # Map rendering and click handling
     output$map <- renderLeaflet({
@@ -173,28 +204,36 @@ server <- function(input, output, session) {
             system_params(sp)
             
             if (sp$use_cache_data) {
-                solar <- readRDS("_cache/solar.Rds")
-                elcons <- readRDS("_cache/elcons_data.Rds")
+                solar <- solar(readRDS("_cache/solar.Rds"))
+                elcons <- elcons(readRDS("_cache/elcons_data.Rds"))
             } else {
-                solar <- getSolarData(
+                solar( getSolarData(
                     lat = sp$lat, lon = sp$lon, start_date = sp$start_date,
                     system_lifetime = sp$system_lifetime, loss = sp$PV_system_loss,
                     angle = sp$PV_angle, aspect = sp$PV_aspect, peakpower = sp$PV_peakpower,
                     add_PV_noise = sp$PV_add_PV_noise, fixed_seed = sp$fixed_seed
-                )
-                elcons <- get_load_data(
+                ))
+                elcons( get_load_data(
                     start_date = sp$start_date, system_lifetime = sp$system_lifetime,
                     annual_consumption = sp$HH_annual_consumption, fixed_seed = sp$fixed_seed,
                     add_HH_cons_noise = sp$HH_add_cons_multiplier
-                )
+                ))
             }
             
-            df1 <- myCombineConsAndSolar(solar$solar_data, elcons$elcons)
-            ef <- CalculateEnergyFlows(df1, sp)
-            energy_flows(ef)
+            df1 <- myCombineConsAndSolar(solar()$solar_data, elcons()$elcons)
+            print("df1: ")
+            glimpse(df1)
+            energy_flows <- CalculateEnergyFlows(df1, sp)
+            print("energy_flows: ")
+            glimpse(energy_flows)
+            energy_flows(energy_flows)
             
             showNotification("Energy data loaded successfully", type = "message")
+            shinyjs::hide("load_data")
+            print("hiding load data button")
+            shinyjs::show("calculate_financials")
             
+           
         }, error = function(e) {
             showNotification(paste("Error loading data:", e$message), type = "error")
         }, finally = {
@@ -209,55 +248,74 @@ server <- function(input, output, session) {
         
         tryCatch({
             sp <- system_params()
-            ef <- energy_flows()
+            energy_flows <- energy_flows()
             
             if (sp$use_cache_data) {
-                grid_cost <- readRDS("_cache/grid_cost.Rds")
-                feed_in <- readRDS("_cache/feed_in_price.Rds")
-                elprice <- readRDS("_cache/elprice.Rds")
+                grid_cost <- grid_cost(readRDS("_cache/grid_cost.Rds") )
+                feed_in <- feed_in( readRDS("_cache/feed_in_price.Rds") )
+                elprice <- elprice( readRDS("_cache/elprice.Rds") )
             } else {
-                grid_cost <- my_gridcost(
+                grid_cost( my_gridcost(
                     my_data_read_distrib_costs_observed_data(), startdate = sp$start_date,
                     years = sp$system_lifetime, annual_growth = sp$gridcost_annual_growth,
                     method = sp$gridcost_method
-                )
-                feed_in <- my_feed_in(
+                ))
+                feed_in( my_feed_in(
                     years = sp$system_lifetime, annual_growth = sp$feedin_annual_growth,
                     startdate = sp$start_date, method = sp$feedin_method,
                     fixed_seed = sp$fixed_seed, lastval = sp$feedin_lastval
-                )
-                elprice <- my_elprice(
+                ))
+                elprice( my_elprice(
                     my_data_read_elprice_observed_data(), startdate = sp$start_date,
                     years = sp$system_lifetime, annual_growth = sp$elprice_annual_growth,
                     method = sp$elprice_method,
                     add_intraday_variability = sp$elprice_add_intraday_variability,
                     add_intraweek_variability = sp$elprice_add_intraweek_variability
-                )
+                ))
             }
-            cat("Data types check:\n")
-            cat("energy_flows datetime:", class(ef$datetime), "\n")
-            cat("elprice datetime:", class(elprice$price_data$datetime), "\n")
-            cat("feed_in datetime:", class(feed_in$feed_in$datetime), "\n")
-            cat("grid_cost datetime:", class(grid_cost$grid_cost$datetime), "\n")
-            cat("----")
-            cat("Energy flows date range:", min(ef$date), "to", max(ef$date), "\n")
-            cat("Elprice date range:", min(elprice$price_data$date), "to", max(elprice$price_data$date), "\n")
-            cat("Feed-in date range:", min(feed_in$feed_in$date), "to", max(feed_in$feed_in$date), "\n")
-            cat("Grid cost date range:", min(grid_cost$grid_cost$date), "to", max(grid_cost$grid_cost$date), "\n")
+            
+            #DEBUG
+            # cat("Data types check:\n")
+            # cat("energy_flows datetime:", class(energy_flows$datetime), " ", max(energy_flows$datetime), "\n")
+            # cat("elprice datetime:", class(elprice$price_data$datetime), " ", max(elprice$price_data$datetime), "\n")
+            # cat("feed_in datetime:", class(feed_in$feed_in$datetime), " ", max(elprice$price_data$datetime), "\n")
+            # cat("grid_cost datetime:", class(grid_cost$grid_cost$datetime), " ", max(grid_cost$grid_cost$datetime), "\n")
+            # cat("----")
+            # cat("Energy flows date range:", min(energy_flows$date), "to", max(energy_flows$date), "\n")
+            # cat("Elprice date range:", min(elprice$price_data$date), "to", max(elprice$price_data$date), "\n")
+            # cat("Feed-in date range:", min(feed_in$feed_in$date), "to", max(feed_in$feed_in$date), "\n")
+            # cat("Grid cost date range:", min(grid_cost$grid_cost$date), "to", max(grid_cost$grid_cost$date), "\n")
+            # 
+            # print("---")
+            # print("energy_flows: ")
+            # glimpse(energy_flows)
+            # print("elprice: ")
+            # glimpse(elprice$price_data)
+            # print("feed_in: ")
+            # glimpse(feed_in$feed_in)
+            # print("grid_cost: ")
+            # glimpse(grid_cost$grid_cost)
+            
             energy_flows_enh <- CalculateFinancials(
-                ef, elprice$price_data, feed_in$feed_in, grid_cost$grid_cost, params = sp
+                energy_flows, elprice()$price_data, feed_in()$feed_in, grid_cost()$grid_cost, params = sp
             )
+            print("energy_flows_enh: ")
+            glimpse(energy_flows_enh)
             
             final_results(list(
                 summary = energy_flows_enh$summary_vals,
                 hourly = energy_flows_enh$df_hourly
             ))
-            
+            calculations_done(TRUE)
             showNotification("Financial calculations complete", type = "message")
+            
             
         }, error = function(e) {
             showNotification(paste("Error in financial calculations:", e$message), type = "error")
         }, finally = {
+            
+            shinyjs::show("chartsTab")
+            shinyjs::show("resultsTab")
             removeModal()
         })
     })
@@ -279,7 +337,7 @@ server <- function(input, output, session) {
             need(nrow(df) > 0, "No data available for selected date")
         )
         
-        p <- plotDay(input$plot_date, df)  # Ensure plotDay() returns a ggplot
+        p <- plotDay(input$plot_date, df, system_params())  # Ensure plotDay() returns a ggplot
         ggplotly(p) %>%
             layout(
                 hovermode = "x unified",
@@ -290,4 +348,87 @@ server <- function(input, output, session) {
                 )
             )
     })
+    
+    
+    # render plots of inputs
+    output$elconsPlot <- renderPlot({
+        req(elcons())
+        elcons()$plot
+    })
+    
+    output$solarPlot <- renderPlot({
+        req(solar())
+        solar()$plot
+    })
+    
+    output$gridCostPlot <- renderPlot({
+        req(grid_cost())
+        grid_cost()$plot
+    })
+    
+    output$feedInPlot <- renderPlot({
+        req(feed_in())
+        feed_in()$plot
+    })
+    
+    output$elpricePlot <- renderPlot({
+        req(elprice())
+        elprice()$plot
+    })
+    
+    
+    #DEBUG 
+    # observeEvent(input$testSwitch, {
+    #     updateTabsetPanel(session, "mainPanelTabs", selected = "Results")
+    #     print("Test switch tab")
+    # })
+    
+    # navigate to Results
+    observe({
+        print(paste("observe final_results: final_results is", ifelse(is.null(final_results()), "NULL", "NOT NULL"))) 
+        if (!is.null(final_results())) {
+            updateTabsetPanel(session, "mainPanelTabs", selected = "Results")
+        }
+    })
+    
+    
+    # Reset App button using session$reload()
+    observeEvent(input$reset_app, {
+        session$reload()
+    })
+    
+    
+  
+    
+    #for downloads of data:
+    output$download_summary <- downloadHandler(
+        filename = function() {
+            paste("summary_results.xlsx", sep = "")
+        },
+        content = function(file) {
+            req(final_results())  # Ensure data is available
+            
+            # Get the summary data
+            summary_data <- final_results()$summary
+            
+            # Write to an Excel file
+            writexl::write_xlsx(list("Summary" = summary_data), path = file)
+        }
+    )
+    
+    # Download Hourly Data
+    output$download_hourly <- downloadHandler(
+        filename = function() {
+            paste("hourly_data.xlsx", sep = "")
+        },
+        content = function(file) {
+            req(final_results())  # Ensure data is available
+            
+            # Get the hourly data
+            hourly_data <- final_results()$hourly
+            
+            # Write to an Excel file
+            writexl::write_xlsx(list("Hourly Data" = hourly_data), path = file)
+        }
+    )
 }
