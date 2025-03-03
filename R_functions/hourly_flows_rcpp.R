@@ -12,7 +12,7 @@ myCombineConsAndSolar <- function(solar_data
                           # , feed_in_data
                           # , grid_cost_data
                           ) {
-  
+print("myCombineConsAndSolar started")  
 solar_data <- solar_data %>% select(datetime, date, hour, P_kWh) 
 elcons <- elcons %>% select(datetime, date, hour, cons_kWh)
 # elprice <- elprice %>% select(datetime, date, hour, price)
@@ -317,7 +317,11 @@ plotDay <- function(which_day, hourly_energy_flows, params) {
   range_primary_y <- range(c(df$PV_available, df$total_demand, df$grid_import, df$grid_export), na.rm = TRUE)
   range_secondary_y <- c(0, params$battery_capacity_kwh)  # Min 0, Max battery capacity
   
-
+  if (nrow(hourly_energy_flows) == 0) {
+    return(ggplot() +
+             annotate("text", x = 0.5, y = 0.5, label = "No data for selected day") +
+             theme_void())
+  }#endif
   
   ggplot() +
     geom_line(data = df, aes(x = hour, y = PV_available, color = "PV Production")) +
@@ -340,6 +344,13 @@ plotDay <- function(which_day, hourly_energy_flows, params) {
 plotWeek <- function(start_day, hourly_energy_flows, params) {
   start_day <- ConvertTextToDate(start_day)
   df <- hourly_energy_flows %>% filter(date >= start_day & date < (start_day + days(7)))
+  
+  if (nrow(df) == 0) {
+    return(ggplot() +
+             annotate("text", x = 0.5, y = 0.5, label = "No data for selected day") +
+             theme_void())
+  }#endif
+  
   range_primary_y <- range(c(df$PV_available, df$total_demand, df$grid_import, df$grid_export), na.rm = TRUE)
   range_secondary_y <- c(0, params$battery_capacity_kwh)  # Min 0, Max battery capacity
   

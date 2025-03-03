@@ -38,7 +38,7 @@ if (fixed_seed) {set.seed(123)}
   
 start_date <- my_check_date(start_date)
 startyear <- substring(start_date, 1,4) %>% as.integer()  #start_date %>% lubridate::floor_date(start_date %>% lubridate::ymd())
-endyear <- startyear + system_lifetime
+endyear <- startyear + (system_lifetime-1)
 orig_startyear <- startyear
 orig_endyear <- endyear
 
@@ -172,7 +172,13 @@ if (length(years_to_fill) > 0) {
     select(-yearorig, -newyear)
   
   solar_data <- bind_rows(solar_data, y)
+  } else {
+    solar_data <- solar_data %>% mutate(data_from_year = year # no filled years, so just the year of observation
+                                        , date = lubridate::ymd(paste0(year,"-",month,"-",str_pad(day,2, pad = "0")))
+                                        , datetime = make_datetime( year = year, month = month, day = day, hour = hour, tz = "Etc/GMT-1")
+    ) 
   }#endif
+
 
 solar_data <- solar_data %>% filter(year >= orig_startyear & year <= orig_endyear) %>%
               mutate(P_kWh = P / 10^3)

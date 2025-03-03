@@ -484,11 +484,67 @@ my_elprice <- function(df
       price = price_method + generated_hour_component + generated_week_component)
   
   
-  plt <- ggplot() + 
-    geom_line(data = future_prices, aes(x=year, y = price), alpha = 0.3) +
+  # plt <- ggplot() + 
+  #   geom_line(data = , aes(x=datetime, y = price), alpha = 0.3) +
+  #   theme_minimal()
+  
+  plt_boxplot_per_year <- future_prices %>% ggplot(aes(x=factor(year), y = price)) + geom_boxplot()+
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+  
+  
+  # this is too slow to run:
+  # plt_ elprice$price_data %>% ggplot(aes(x = datetime, y = price)) +
+  #   geom_smooth(method = "loess", se = TRUE) + 
+  #   facet_wrap(~year, scales = "free_x") + 
+  #   labs(title = "Hourly Value Trend by Year",
+  #              +          x = "Date Time",
+  #              +          y = "Value") +
+  #   theme_minimal()
+  
+  plt_heatmap <- future_prices %>%
+    group_by(year, day, hour) %>%
+    summarise(mean = mean(price, na.rm = TRUE), .groups = "drop") %>%
+    ggplot(aes(x = hour, y = day, fill = mean)) +
+    geom_tile() +
+    facet_wrap(~year) +
+    scale_fill_gradient(low = "blue", high = "red") +
+    labs(title = "Heatmap of Avg Hourly Price by Day of Year",
+         x = "Hour of Day",
+         y = "Day of Year",
+         fill = "Mean Price") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
     theme_minimal()
   
-  output <- list(plot = plt, price_data = future_prices)
+    plt_monthly <- future_prices %>% mutate(year_month = format(datetime, "%Y-%m")) %>%
+      group_by(year, month, year_month) %>%
+      summarise(mean = mean(price, na.rm = TRUE)
+                , q10 = quantile(price, 0.10, na.rm = TRUE)
+                , q90 = quantile(price, 0.90, na.rm = TRUE)
+                , .groups = "drop") %>% 
+      ggplot(aes(x = month, y = mean)) +
+      geom_line(group = 1) + # group = 1 to prevent ggplot from trying to group lines
+      #geom_point() +
+      geom_ribbon(aes(ymin = q10, ymax = q90), alpha = 0.2) + # Add ribbon for quantiles
+      labs(
+        title = "Monthly Average Price",
+        x = "Year-Month",
+        y = "Price"
+      ) +
+      facet_grid(year ~ .) +
+      theme_minimal() +
+      #theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+      # x axis as integers with step 1
+      scale_x_continuous(breaks = 1:12) + 
+      # Integer y-axis labels
+      scale_y_continuous(labels = scales::number_format(accuracy = 1))
+    
+    
+  
+  output <- list(plot = plt_boxplot_per_year
+                 , plot_monthly = plt_monthly
+                 , plot_heatmap = plt_heatmap
+                 , price_data = future_prices)
   
   return(output)
 }#endfunction my_elprice

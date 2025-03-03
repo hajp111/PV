@@ -16,7 +16,7 @@ if (fixed_seed) {set.seed(123)}
 
 start_date <- my_check_date(start_date)
 startyear <- substring(start_date, 1,4) %>% as.integer()
-endyear <- startyear + system_lifetime
+endyear <- startyear + (system_lifetime-1)
 end_date <- paste0(endyear, "-12-31")
   
 #generate H0 profile
