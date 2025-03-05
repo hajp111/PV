@@ -1,0 +1,13 @@
+name: PVAn
+title: PVAn
+username: hajp04
+account: hajp04
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14162197
+bundleId: 9896287
+url: https://hajp04.shinyapps.io/PVAn/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: README.md|tmp_old/hourly_flows.R|tmp_old/x_hourly_flows_old1.R|tmp_old/x_old_read_irradiance.R|gfx

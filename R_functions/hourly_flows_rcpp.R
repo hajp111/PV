@@ -1,5 +1,5 @@
 library(tidyverse)
-library(tictoc)
+#library(tictoc)
 library(Rcpp)
 source("R_functions/aux_functions.R")
 
@@ -86,7 +86,8 @@ myCombineFlowsPrices <- function(energy_flows
 #### define functions for hourly flows ####
 # the function calculates each year separately to improve performance
 CalculateEnergyFlows <- function(dat, params) {
-  tic()
+  #tic()
+  print("CalculateEnergyFlows() started")
   #load C code
   sourceCpp("R_functions/yearly_calc.cpp") 
   
@@ -120,13 +121,30 @@ CalculateEnergyFlows <- function(dat, params) {
   )
   
   years <- unique(year(dat$datetime))
-  results_list <- vector("list", length(years))
+  # preallocate list for results
+  results_list <- vector("list", length(years))  
   
+  #disable lapply, try for loop instaed
+  if (FALSE == TRUE) {
+  print("starting the lapply")
   results_list <- lapply(years, function(y) {
     year_data <- dat %>% filter(year(datetime) == y)
     initial_soc <- params$battery_initial_soc * params$battery_capacity_kwh # this is the initial SOC for each year
     calculate_year_energy(year_data, params, initial_soc) # call Rcpp function on single year data
   })
+  print("lapply done")
+  }#end disabled block
+  
+  # use for instaed of lapply (because of shinyapps.io)
+  print("start for loop")
+  for (i in seq_along(years)) {
+    y <- years[i]
+    year_data <- dat %>% filter(year(datetime) == y)
+    initial_soc <- params$battery_initial_soc * params$battery_capacity_kwh  # this is the initial SOC for each year
+    results_list[[i]] <- calculate_year_energy(year_data, params, initial_soc)  # call Rcpp function on single year data
+  }#end for loop
+  print("For loop done")
+
   
   final_results <- bind_rows(results_list)
   final_results <- final_results %>% 
@@ -136,7 +154,8 @@ CalculateEnergyFlows <- function(dat, params) {
       , discount_factor = 1 / (1 + params$discount_rate/8760)^(row_number()-1) 
       , discounted_PV_available = PV_available * discount_factor
     )
-  toc()
+  
+  #toc()
   return(final_results)
 }#endfunction CalculateEnergyFlows
 
@@ -205,8 +224,8 @@ CalculateFinancials <- function(energy_flows
   
   # create summary to be returned along with the hourly data
   summary_vals <- tibble(
-           mindate = energy_flows_w_prices$date %>% min()
-           , maxdate = energy_flows_w_prices$date %>% max()
+           mindate = energy_flows_w_prices$date %>% min() %>% format("%Y-%m-%d")
+           , maxdate = energy_flows_w_prices$date %>% max() %>% format("%Y-%m-%d")
            , discounted_net_cashflow_without_PV = sum(energy_flows_w_prices$discounted_net_cashflow_without_PV)
            , discounted_net_cashflow_explicit = sum(energy_flows_w_prices$discounted_net_cashflow_explicit)
            , discounted_maintenance_costs = paste0( sum(energy_flows_w_prices$discounted_maintenance_costs), " Annually: ", sum(energy_flows_w_prices$discounted_maintenance_costs) / (params$system_lifetime))

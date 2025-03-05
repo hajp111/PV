@@ -33,3 +33,15 @@ ggplotly_with_secondary <- function(p) {
     )
 }#endfunction ggplotly_with_secondary
 
+# Validate percentage inputs
+validate_min_max <- function(input_id, min_val, max_val, error_msg) {
+    if (input[[input_id]] < min_val || input[[input_id]] > max_val) {
+        showNotification(
+            error_msg,
+            type = "error",
+            duration = 5
+        )
+        return(FALSE)
+    }#endif
+    return(TRUE)
+}#endfunction validate_min_max

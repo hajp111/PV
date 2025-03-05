@@ -39,9 +39,9 @@ ui <- fluidPage(
             numericInput("lon", "Longitude", 16.998),
             
             h4("Date Range"),
-            dateInput("start_date", "Start Date", value = "2022-01-01"),
+            dateInput("start_date", "Start Date", value = "2025-01-01"),
             numericInput("system_lifetime", "System Lifetime (years)",
-                         value = 20, min = 1, step = 1, max = 50)
+                         value = 15, min = 1, step = 1, max = 50)
         ),
         
         mainPanel(
@@ -52,24 +52,24 @@ ui <- fluidPage(
                          helpText("Value between 0 and 1. When charging with E kWh, stored energy is E × efficiency"),
                          numericInput("battery_discharge_efficiency", "Discharge Efficiency", 0.95, min = 0, max = 1, step = 0.01),
                          helpText("Value between 0 and 1. When discharging E kWh, released energy is E × efficiency"),
-                         numericInput("battery_initial_soc", "Initial SOC (%)", 50, min = 0, max = 100),
+                         numericInput("battery_initial_soc", "Initial SOC (%)", 50, min = 0, max = 100, step = 1),
                          helpText("Initial state of charge as percentage of battery capacity"),
-                         numericInput("battery_min_soc", "Min SOC (%)", 10, min = 0, max = 100),
+                         numericInput("battery_min_soc", "Min SOC (%)", 10, min = 0, max = 100, step = 1),
                          helpText("Minimum state of charge to avoid battery damage"),
-                         numericInput("battery_max_soc", "Max SOC (%)", 100, min = 0, max = 100),
+                         numericInput("battery_max_soc", "Max SOC (%)", 100, min = 0, max = 100, step = 1),
                          helpText("Maximum state of charge (100% = full capacity)"),
-                         numericInput("battery_degradation", "Degradation Rate/year", 0.01, min = 0, max = 1, step = 0.001),
+                         numericInput("battery_degradation", "Degradation Rate/year", 0.01, min = 0, max = 1, step = 0.01),
                          helpText("Annual battery capacity degradation rate (decimal, e.g., 0.01 = 1%)"))
                 
                 , tabPanel("PV Parameters",
-                         numericInput("PV_peakpower", "Peak Power (kWp)", 4.5, min = 0),
+                         numericInput("PV_peakpower", "Peak Power (kWp)", 4.5, min = 0, max = 20),
                          numericInput("PV_system_loss", "System Loss (%)", 14, min = 0, max = 100),
                          helpText("Overall system losses in percent"),
                          numericInput("PV_angle", "Inclination Angle", 30, min = 0, max = 90),
                          helpText("Panel inclination (0° = horizontal, 90° = vertical)"),
                          numericInput("PV_aspect", "Azimuth Angle", 0, min = -180, max = 180),
                          helpText("Panel orientation (0° = South, 90° = West, -90° = East)"),
-                         numericInput("PV_degradation", "Degradation Rate/year", 0.01, min = 0, max = 1, step = 0.001),
+                         numericInput("PV_degradation", "Degradation Rate/year", 0.01, min = 0, max = 1, step = 0.01),
                          helpText("Annual PV panel degradation rate (decimal, e.g., 0.01 = 1%)"),
                          numericInput("PV_system_own_consumption", "System Consumption (kWh/h)", 0.03, min = 0),
                          helpText("Constant energy consumption of the PV system (inverter, etc.)"),

@@ -38,6 +38,8 @@ DataFrame calculate_year_energy(DataFrame year_data, List params, double initial
   double battery_charge_efficiency = as<double>(params["battery_charge_efficiency"]);
   double battery_discharge_efficiency = as<double>(params["battery_discharge_efficiency"]);
   
+  Rcpp::Rcout << "Starting the loop within cpp" << std::endl;
+  
   for (int i = 0; i < n; ++i) {
     battery_available_charge_capacity[i] = battery_max_capacity[i] - battery_current_soc; 
     double max_discharge_possible = battery_current_soc - battery_min_capacity[i];

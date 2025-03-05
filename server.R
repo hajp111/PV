@@ -9,7 +9,7 @@ server <- function(input, output, session) {
     shinyjs::hide("chartsTab")
     shinyjs::hide("resultsTab")
 
-    # Show modal on app start
+    # Show modal with instructions on app start
     showModal(modalDialog(
         title = "Welcome to the PV evaluator",
         "Please follow these steps:",
@@ -24,25 +24,29 @@ server <- function(input, output, session) {
     
     # Reactive values to store intermediate results
     system_params <- reactiveVal(NULL)
-    energy_flows <- reactiveVal(NULL)
-    final_results <- reactiveVal(NULL)
-    # Reactive flag to see if 2nd step is done
-    calculations_done <- reactiveVal(FALSE)
-    
     solar <- reactiveVal(NULL)
     elcons <- reactiveVal(NULL)
-    
+    #
     grid_cost <- reactiveVal(NULL)
     feed_in <- reactiveVal(NULL)
     elprice <- reactiveVal(NULL)
+    #
+    energy_flows <- reactiveVal(NULL)
+    final_results <- reactiveVal(NULL)
     
-    # Map rendering and click handling
+    # flag to see if the 2nd step is done
+    calculations_done <- reactiveVal(FALSE)
+    
+    
+    
+    # render map
     output$map <- renderLeaflet({
         leaflet() %>%
             addTiles() %>%
             setView(lng = 16.998, lat = 49.278, zoom = 8)
     })
     
+    #set marker in map
     observeEvent(input$map_click, {
         click <- input$map_click
         if (!is.null(click)) {
@@ -55,94 +59,84 @@ server <- function(input, output, session) {
         }
     })
     
-    # Input validation
-    observe({
-        # Validate percentage inputs
-        validate_min_max <- function(input_id, min_val, max_val, error_msg) {
-            if (input[[input_id]] < min_val || input[[input_id]] > max_val) {
-                showNotification(
-                    error_msg,
-                    type = "error",
-                    duration = 5
-                )
-                return(FALSE)
-            }
-            return(TRUE)
-        }
-        
-        # Battery percentage validations
-        battery_init_valid <- validate_min_max(
-            "battery_initial_soc", 0, 100,
-            "Initial SOC must be between 0% and 100%"
-        )
-        
-        battery_min_valid <- validate_min_max(
-            "battery_min_soc", 0, 100,
-            "Min SOC must be between 0% and 100%"
-        )
-        
-        battery_max_valid <- validate_min_max(
-            "battery_max_soc", 0, 100,
-            "Max SOC must be between 0% and 100%"
-        )
-        
-        # Check min < initial < max
-        if (battery_min_valid && battery_init_valid && battery_max_valid) {
-            if (input$battery_min_soc > input$battery_initial_soc) {
-                showNotification(
-                    "Initial SOC must be greater than or equal to Min SOC",
-                    type = "error",
-                    duration = 5
-                )
-            }
-            
-            if (input$battery_initial_soc > input$battery_max_soc) {
-                showNotification(
-                    "Initial SOC must be less than or equal to Max SOC",
-                    type = "error",
-                    duration = 5
-                )
-            }
-            
-            if (input$battery_min_soc > input$battery_max_soc) {
-                showNotification(
-                    "Min SOC must be less than Max SOC",
-                    type = "error",
-                    duration = 5
-                )
-            }
-        }
-        
-        # Validate efficiency values
-        validate_min_max(
-            "battery_charge_efficiency", 0, 1, 
-            "Charge efficiency must be between 0 and 1"
-        )
-        
-        validate_min_max(
-            "battery_discharge_efficiency", 0, 1,
-            "Discharge efficiency must be between 0 and 1"
-        )
-        
-        # Validate PV parameters
-        validate_min_max(
-            "PV_system_loss", 0, 100,
-            "PV system loss must be between 0% and 100%"
-        )
-        
-        # Validate date range
-        if (!is.null(input$start_date) && !is.null(input$system_lifetime)) {
-            if (input$system_lifetime <= 0) {
-                showNotification(
-                    "System lifetime must be positive",
-                    type = "error",
-                    duration = 5
-                )
-            }
-        }
-    })
     
-    # First button - Load Energy Data
+    #### Input validation - input forms have min and max, so ignore here 
+    # observe({
+    # 
+    # 
+    #     # Battery percentage validations
+    #     battery_init_valid <- validate_min_max(
+    #         "battery_initial_soc", 0, 100,
+    #         "Initial SOC must be between 0% and 100%"
+    #     )
+    # 
+    #     battery_min_valid <- validate_min_max(
+    #         "battery_min_soc", 0, 100,
+    #         "Min SOC must be between 0% and 100%"
+    #     )
+    # 
+    #     battery_max_valid <- validate_min_max(
+    #         "battery_max_soc", 0, 100,
+    #         "Max SOC must be between 0% and 100%"
+    #     )
+    # 
+    #     # Check min < initial < max
+    #     if (battery_min_valid && battery_init_valid && battery_max_valid) {
+    #         if (input$battery_min_soc > input$battery_initial_soc) {
+    #             showNotification(
+    #                 "Initial SOC must be greater than or equal to Min SOC",
+    #                 type = "error",
+    #                 duration = 5
+    #             )
+    #         }#endif
+    # 
+    #         if (input$battery_initial_soc > input$battery_max_soc) {
+    #             showNotification(
+    #                 "Initial SOC must be less than or equal to Max SOC",
+    #                 type = "error",
+    #                 duration = 5
+    #             )
+    #         }#endif
+    # 
+    #         if (input$battery_min_soc > input$battery_max_soc) {
+    #             showNotification(
+    #                 "Min SOC must be less than Max SOC",
+    #                 type = "error",
+    #                 duration = 5
+    #             )
+    #         }#endif
+    #     }
+    # 
+    #     # Validate efficiency values
+    #     # validate_min_max(
+    #     #     "battery_charge_efficiency", 0, 1,
+    #     #     "Charge efficiency must be between 0 and 1"
+    #     # )
+    # 
+    #     # validate_min_max(
+    #     #     "battery_discharge_efficiency", 0, 1,
+    #     #     "Discharge efficiency must be between 0 and 1"
+    #     # )
+    # 
+    #     # Validate PV parameters
+    #     # validate_min_max(
+    #     #     "PV_system_loss", 0, 100,
+    #     #     "PV system loss must be between 0% and 100%"
+    #     # )
+    # 
+    #     # # Validate date range
+    #     # if (!is.null(input$start_date) && !is.null(input$system_lifetime)) {
+    #     #     if (input$system_lifetime <= 0) {
+    #     #         showNotification(
+    #     #             "System lifetime must be positive",
+    #     #             type = "error",
+    #     #             duration = 5
+    #     #         )
+    #     #     }
+    #     # }#endif date range
+    # })
+    
+    # first button - Load Energy Data
     observeEvent(input$load_data, {
         showModal(modalDialog("Loading energy data...", footer = NULL))
         
@@ -164,7 +158,7 @@ server <- function(input, output, session) {
                 # PV parameters
                 PV_degradation = input$PV_degradation,
                 PV_system_own_consumption = input$PV_system_own_consumption,
-                PV_system_loss = input$PV_system_loss, # Already in percentage format for the API
+                PV_system_loss = input$PV_system_loss, # is like 10 for 10% - used like "10" in the API call
                 PV_angle = input$PV_angle,
                 PV_aspect = input$PV_aspect,
                 PV_peakpower = input$PV_peakpower,
@@ -176,7 +170,7 @@ server <- function(input, output, session) {
                 annual_maintenance_cost = input$annual_maintenance_cost,
                 
                 # Date range
-                start_date = as.character(input$start_date), # Ensure it's a string in YYYY-MM-DD format
+                start_date = format(input$start_date, "%Y-%m-%d"), # ensure a string (in YYYY-MM-DD format)
                 system_lifetime = input$system_lifetime,
                 lat = input$lat,
                 lon = input$lon,
@@ -204,29 +198,48 @@ server <- function(input, output, session) {
             system_params(sp)
             
             if (sp$use_cache_data) {
-                solar <- solar(readRDS("_cache/solar.Rds"))
-                elcons <- elcons(readRDS("_cache/elcons_data.Rds"))
+                # solar <- solar(readRDS("_cache/solar.Rds"))
+                # elcons <- elcons(readRDS("_cache/elcons_data.Rds"))
+                # 
+                df1 <- myCombineConsAndSolar(#solar
+                  readRDS("_cache/solar.Rds")$solar_data
+                  #elcons
+                  , readRDS("_cache/elcons_data.Rds")$elcons)
             } else {
-                solar( getSolarData(
-                    lat = sp$lat, lon = sp$lon, start_date = sp$start_date,
-                    system_lifetime = sp$system_lifetime, loss = sp$PV_system_loss,
-                    angle = sp$PV_angle, aspect = sp$PV_aspect, peakpower = sp$PV_peakpower,
-                    add_PV_noise = sp$PV_add_PV_noise, fixed_seed = sp$fixed_seed
-                ))
-                elcons( get_load_data(
-                    start_date = sp$start_date, system_lifetime = sp$system_lifetime,
-                    annual_consumption = sp$HH_annual_consumption, fixed_seed = sp$fixed_seed,
-                    add_HH_cons_noise = sp$HH_add_cons_multiplier
-                ))
-            }
+                # solar( getSolarData(
+                #     lat = sp$lat, lon = sp$lon, start_date = sp$start_date,
+                #     system_lifetime = sp$system_lifetime, loss = sp$PV_system_loss,
+                #     angle = sp$PV_angle, aspect = sp$PV_aspect, peakpower = sp$PV_peakpower,
+                #     add_PV_noise = sp$PV_add_PV_noise, fixed_seed = sp$fixed_seed
+                # ))
+                # elcons( get_load_data(
+                #     start_date = sp$start_date, system_lifetime = sp$system_lifetime,
+                #     annual_consumption = sp$HH_annual_consumption, fixed_seed = sp$fixed_seed,
+                #     add_HH_cons_noise = sp$HH_add_cons_multiplier
+                # ))
+              df1 <- myCombineConsAndSolar(#solar
+                getSolarData(
+                  lat = sp$lat, lon = sp$lon, start_date = sp$start_date,
+                  system_lifetime = sp$system_lifetime, loss = sp$PV_system_loss,
+                  angle = sp$PV_angle, aspect = sp$PV_aspect, peakpower = sp$PV_peakpower,
+                  add_PV_noise = sp$PV_add_PV_noise, fixed_seed = sp$fixed_seed
+                )$solar_data
+                #elcons
+                , get_load_data(
+                  start_date = sp$start_date, system_lifetime = sp$system_lifetime,
+                  annual_consumption = sp$HH_annual_consumption, fixed_seed = sp$fixed_seed,
+                  add_HH_cons_noise = sp$HH_add_cons_multiplier
+                )$elcons)
+            }#endif cache
             
-            df1 <- myCombineConsAndSolar(solar()$solar_data, elcons()$elcons)
-            print("df1: ")
-            glimpse(df1)
+            gc(full = TRUE)
+            print("df1 done")
+            #glimpse(df1)
             energy_flows <- CalculateEnergyFlows(df1, sp)
-            print("energy_flows: ")
-            glimpse(energy_flows)
-            energy_flows(energy_flows)
+            print("energy_flows done")
+            gc(full = TRUE)
+            #glimpse(energy_flows)
+            energy_flows(energy_flows)  #store value in reactive
             
             showNotification("Energy data loaded successfully", type = "message")
             shinyjs::hide("load_data")
@@ -238,6 +251,7 @@ server <- function(input, output, session) {
             showNotification(paste("Error loading data:", e$message), type = "error")
         }, finally = {
             removeModal()
+          print("step1 done")
         })
     })
     
@@ -260,11 +274,13 @@ server <- function(input, output, session) {
                     years = sp$system_lifetime, annual_growth = sp$gridcost_annual_growth,
                     method = sp$gridcost_method
                 ))
+              print("grid_cost loaded")
                 feed_in( my_feed_in(
                     years = sp$system_lifetime, annual_growth = sp$feedin_annual_growth,
                     startdate = sp$start_date, method = sp$feedin_method,
                     fixed_seed = sp$fixed_seed, lastval = sp$feedin_lastval
                 ))
+              print("feed_in loaded")  
                 elprice( my_elprice(
                     my_data_read_elprice_observed_data(), startdate = sp$start_date,
                     years = sp$system_lifetime, annual_growth = sp$elprice_annual_growth,
@@ -272,7 +288,9 @@ server <- function(input, output, session) {
                     add_intraday_variability = sp$elprice_add_intraday_variability,
                     add_intraweek_variability = sp$elprice_add_intraweek_variability
                 ))
-            }
+              print("elprice loaded")  
+                gc(full = TRUE)
+                }
             
             #DEBUG
             # cat("Data types check:\n")
@@ -299,8 +317,9 @@ server <- function(input, output, session) {
             energy_flows_enh <- CalculateFinancials(
                 energy_flows, elprice()$price_data, feed_in()$feed_in, grid_cost()$grid_cost, params = sp
             )
-            print("energy_flows_enh: ")
-            glimpse(energy_flows_enh)
+            gc(full = TRUE)
+            print("energy_flows_enh done")
+            #glimpse(energy_flows_enh)
             
             final_results(list(
                 summary = energy_flows_enh$summary_vals,
@@ -317,6 +336,7 @@ server <- function(input, output, session) {
             shinyjs::show("chartsTab")
             shinyjs::show("resultsTab")
             removeModal()
+            print("step2 done")
         })
     })
     
@@ -351,15 +371,15 @@ server <- function(input, output, session) {
     
     
     # render plots of inputs
-    output$elconsPlot <- renderPlot({
-        req(elcons())
-        elcons()$plot
-    })
+    # output$elconsPlot <- renderPlot({
+    #     req(elcons())
+    #     elcons()$plot
+    # })
     
-    output$solarPlot <- renderPlot({
-        req(solar())
-        solar()$plot
-    })
+    # output$solarPlot <- renderPlot({
+    #     req(solar())
+    #     solar()$plot
+    # })
     
     output$gridCostPlot <- renderPlot({
         req(grid_cost())
