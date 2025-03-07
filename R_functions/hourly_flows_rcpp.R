@@ -50,10 +50,10 @@ myCombineFlowsPrices <- function(energy_flows
   feed_in_data <- feed_in_data %>% select(datetime, date, hour, feed_in)
   grid_cost_data <- grid_cost_data %>% select(datetime, date, hour, grid_cost)
   
-  cat("Dimensions before joins: energy_flows:", dim(energy_flows), 
-      "elprice:", dim(elprice), 
-      "feed_in:", dim(feed_in_data), 
-      "grid_cost:", dim(grid_cost_data), "\n")
+  cat("Dimensions before joins: energy_flows:", dim(energy_flows),  "\n"
+      , "elprice:", dim(elprice),  "\n"
+      , "feed_in:", dim(feed_in_data),  "\n"
+      , "grid_cost:", dim(grid_cost_data), "\n")
   
   # Check for matching keys
   cat("Date range in energy_flows:", min(energy_flows$date), "to", max(energy_flows$date), "\n")

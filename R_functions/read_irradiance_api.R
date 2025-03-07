@@ -30,9 +30,9 @@ url_TMY <-  "https://re.jrc.ec.europa.eu/api/tmy"
 # INFO: Czech Republic approximately within:
 # Latitude: 48.5° to 51.1°
 # Longitude: 12° to 19°
-if ( ((48.5 <= lat & lat <= 51.1) & (12 <= lon & lon <= 19))==FALSE) {warning("Position not in CZ, please select another location.")
-  return(NULL)
-  }#endif check for location within CZ
+if ( ((48.5 <= lat & lat <= 51.1) & (12 <= lon & lon <= 19))==FALSE) {warning("Position not in CZ, please consider another location.")
+  #return(NULL)
+}#endif check for location within CZ
   
 if (fixed_seed) {set.seed(123)}
   
@@ -48,7 +48,7 @@ if (startyear < 2005) {
   startyear <- 2005
 } 
 if (endyear > 2023) {
-    print("End year larger than 2023, data only until 2023")
+    print("End year larger than 2023, data only until 2023: will recycle data for future years")
   orig_endyear <- endyear
   endyear <- 2023
   }
@@ -107,7 +107,7 @@ oldw <- getOption("warn")
 #supress warning for separate() in metadata
 options(warn = -1)
 
-solar_data <- lines[header_line:last_line] %>% paste(collapse = "\n") %>% read_csv() %>% 
+solar_data <- lines[header_line:last_line] %>% paste(collapse = "\n") %>% readr::read_csv(show_col_types = FALSE) %>% 
   separate(time, into = c("date", "hour"), sep = ":") %>%
   mutate(date = lubridate::ymd(date)
          , hour = substr(hour,1,2) %>% as.integer()

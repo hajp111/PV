@@ -4,12 +4,14 @@ library(shinyjs)
 server <- function(input, output, session) {
     
     print("hiding calculate_financials button")
+  
+  
     shinyjs::hide("calculate_financials")
     # hide the results tabs 
-    shinyjs::hide("chartsTab")
-    shinyjs::hide("resultsTab")
+    hideTab(inputId = "mainPanelTabs", target = "chartsTab")
+    hideTab(inputId = "mainPanelTabs", target = "resultsTab")
 
-    # Show modal with instructions on app start
+    # modal with instructions on app start
     showModal(modalDialog(
         title = "Welcome to the PV evaluator",
         "Please follow these steps:",
@@ -19,21 +21,30 @@ server <- function(input, output, session) {
             tags$li("Click the 'Calculate Financials' button and wait until the calculations are done"),
             tags$li("See the results on the Results tab.")
         ),
-        footer = modalButton("Got it!")
+        footer = modalButton("OK")
     ))#end modal
     
-    # Reactive values to store intermediate results
+    
+    # reset button 
+    observeEvent(input$reset_app, {
+      session$reload()
+    })
+    
+    
+    # reactive values to store intermediate results
     system_params <- reactiveVal(NULL)
-    solar <- reactiveVal(NULL)
-    elcons <- reactiveVal(NULL)
-    #
-    grid_cost <- reactiveVal(NULL)
-    feed_in <- reactiveVal(NULL)
-    elprice <- reactiveVal(NULL)
-    #
+    # solar <- reactiveVal(NULL)
+    # elcons <- reactiveVal(NULL)
+    # #
+    # grid_cost <- reactiveVal(NULL)
+    # feed_in <- reactiveVal(NULL)
+    # elprice <- reactiveVal(NULL)
+    # #
     energy_flows <- reactiveVal(NULL)
     final_results <- reactiveVal(NULL)
     
+    # flag to see if the 1st setp is done
+    endata_loaded <- reactiveVal(FALSE)
     # flag to see if the 2nd step is done
     calculations_done <- reactiveVal(FALSE)
     
@@ -45,9 +56,12 @@ server <- function(input, output, session) {
             addTiles() %>%
             setView(lng = 16.998, lat = 49.278, zoom = 8)
     })
+   
     
     #set marker in map
     observeEvent(input$map_click, {
+      # only update map marker when data not yet loaded
+      if (!endata_loaded()) {  
         click <- input$map_click
         if (!is.null(click)) {
             updateNumericInput(session, "lat", value = click$lat)
@@ -57,85 +71,10 @@ server <- function(input, output, session) {
                 clearMarkers() %>%
                 addMarkers(lng = click$lng, lat = click$lat)
         }
+      }
     })
     
-    
-    #### Input validation - input forms have min and max, so ignore here 
-    # observe({
-    # 
-    # 
-    #     # Battery percentage validations
-    #     battery_init_valid <- validate_min_max(
-    #         "battery_initial_soc", 0, 100,
-    #         "Initial SOC must be between 0% and 100%"
-    #     )
-    # 
-    #     battery_min_valid <- validate_min_max(
-    #         "battery_min_soc", 0, 100,
-    #         "Min SOC must be between 0% and 100%"
-    #     )
-    # 
-    #     battery_max_valid <- validate_min_max(
-    #         "battery_max_soc", 0, 100,
-    #         "Max SOC must be between 0% and 100%"
-    #     )
-    # 
-    #     # Check min < initial < max
-    #     if (battery_min_valid && battery_init_valid && battery_max_valid) {
-    #         if (input$battery_min_soc > input$battery_initial_soc) {
-    #             showNotification(
-    #                 "Initial SOC must be greater than or equal to Min SOC",
-    #                 type = "error",
-    #                 duration = 5
-    #             )
-    #         }#endif
-    # 
-    #         if (input$battery_initial_soc > input$battery_max_soc) {
-    #             showNotification(
-    #                 "Initial SOC must be less than or equal to Max SOC",
-    #                 type = "error",
-    #                 duration = 5
-    #             )
-    #         }#endif
-    # 
-    #         if (input$battery_min_soc > input$battery_max_soc) {
-    #             showNotification(
-    #                 "Min SOC must be less than Max SOC",
-    #                 type = "error",
-    #                 duration = 5
-    #             )
-    #         }#endif
-    #     }
-    # 
-    #     # Validate efficiency values
-    #     # validate_min_max(
-    #     #     "battery_charge_efficiency", 0, 1,
-    #     #     "Charge efficiency must be between 0 and 1"
-    #     # )
-    # 
-    #     # validate_min_max(
-    #     #     "battery_discharge_efficiency", 0, 1,
-    #     #     "Discharge efficiency must be between 0 and 1"
-    #     # )
-    # 
-    #     # Validate PV parameters
-    #     # validate_min_max(
-    #     #     "PV_system_loss", 0, 100,
-    #     #     "PV system loss must be between 0% and 100%"
-    #     # )
-    # 
-    #     # # Validate date range
-    #     # if (!is.null(input$start_date) && !is.null(input$system_lifetime)) {
-    #     #     if (input$system_lifetime <= 0) {
-    #     #         showNotification(
-    #     #             "System lifetime must be positive",
-    #     #             type = "error",
-    #     #             duration = 5
-    #     #         )
-    #     #     }
-    #     # }#endif date range
-    # })
-    
+
     # first button - Load Energy Data
     observeEvent(input$load_data, {
         showModal(modalDialog("Loading energy data...", footer = NULL))
@@ -235,59 +174,128 @@ server <- function(input, output, session) {
             gc(full = TRUE)
             print("df1 done")
             #glimpse(df1)
-            energy_flows <- CalculateEnergyFlows(df1, sp)
+            #energy_flows <- CalculateEnergyFlows(df1, sp)
+            energy_flows(CalculateEnergyFlows(df1, sp)) 
+            #df1 not needed anymore
+            rm(df1)
             print("energy_flows done")
             gc(full = TRUE)
             #glimpse(energy_flows)
-            energy_flows(energy_flows)  #store value in reactive
             
             showNotification("Energy data loaded successfully", type = "message")
+            #hide load data button
             shinyjs::hide("load_data")
             print("hiding load data button")
-            shinyjs::show("calculate_financials")
+            #hide parameters affecting PV and HH cons
+            removeTab("mainPanelTabs", target = "batteryTab")
+            removeTab("mainPanelTabs", target = "pvTab")
+            removeTab("mainPanelTabs", target = "householdTab")
+            #disable inputs that shouldn't be editable anymore
+            shinyjs::disable("system_lifetime")
+            shinyjs::disable("lat")
+            shinyjs::disable("lon")
+            shinyjs::disable("start_date")
             
+            # show button for 2nd step
+            shinyjs::show("calculate_financials")
            
         }, error = function(e) {
-            showNotification(paste("Error loading data:", e$message), type = "error")
+            showNotification(paste("Error loading data:", e$message), type = "error", duration = 15)
         }, finally = {
             removeModal()
+          endata_loaded(TRUE)  # Set flag to block future clicks
           print("step1 done")
         })
     })
     
     # Second button - Load Financial Data and Calculate
     observeEvent(input$calculate_financials, {
-        req(system_params(), energy_flows())
+      shiny::req(system_params(), energy_flows())
         showModal(modalDialog("Calculating financials...", footer = NULL))
+        calculations_done(FALSE)
         
         tryCatch({
-            sp <- system_params()
-            energy_flows <- energy_flows()
+            
+          sp <- list(
+            use_cache_data = input$use_cache_data,
+            fixed_seed = input$fixed_seed,
+            
+            # Battery parameters
+            battery_capacity_kwh = input$battery_capacity_kwh,
+            battery_charge_efficiency = input$battery_charge_efficiency,
+            battery_discharge_efficiency = input$battery_discharge_efficiency,
+            battery_initial_soc = input$battery_initial_soc / 100, # Convert from percentage to decimal
+            battery_min_soc = input$battery_min_soc / 100, # Convert from percentage to decimal
+            battery_max_soc = input$battery_max_soc / 100, # Convert from percentage to decimal
+            battery_degradation = input$battery_degradation,
+            
+            # PV parameters
+            PV_degradation = input$PV_degradation,
+            PV_system_own_consumption = input$PV_system_own_consumption,
+            PV_system_loss = input$PV_system_loss, # is like 10 for 10% - used like "10" in the API call
+            PV_angle = input$PV_angle,
+            PV_aspect = input$PV_aspect,
+            PV_peakpower = input$PV_peakpower,
+            PV_add_PV_noise = input$PV_add_PV_noise,
+            
+            # Financial parameters
+            installation_cost = input$installation_cost,
+            discount_rate = input$discount_rate,
+            annual_maintenance_cost = input$annual_maintenance_cost,
+            
+            # Date range
+            start_date = format(input$start_date, "%Y-%m-%d"), # ensure a string (in YYYY-MM-DD format)
+            system_lifetime = input$system_lifetime,
+            lat = input$lat,
+            lon = input$lon,
+            
+            # Household consumption
+            HH_annual_consumption = input$HH_annual_consumption,
+            HH_add_cons_multiplier = input$HH_add_cons_multiplier,
+            
+            # Electricity price parameters
+            elprice_method = input$elprice_method,
+            elprice_annual_growth = input$elprice_annual_growth,
+            elprice_add_intraday_variability = input$elprice_add_intraday_variability,
+            elprice_add_intraweek_variability = input$elprice_add_intraweek_variability,
+            
+            # Feed-in tariff
+            feedin_method = input$feedin_method,
+            feedin_lastval = input$feedin_lastval,
+            feedin_annual_growth = input$feedin_annual_growth,
+            
+            # Grid cost parameters
+            gridcost_method = input$gridcost_method,
+            gridcost_annual_growth = input$gridcost_annual_growth
+          )
+          
+          system_params(sp)
+          
             
             if (sp$use_cache_data) {
                 grid_cost <- grid_cost(readRDS("_cache/grid_cost.Rds") )
                 feed_in <- feed_in( readRDS("_cache/feed_in_price.Rds") )
                 elprice <- elprice( readRDS("_cache/elprice.Rds") )
             } else {
-                grid_cost( my_gridcost(
+                grid_cost <- my_gridcost(
                     my_data_read_distrib_costs_observed_data(), startdate = sp$start_date,
                     years = sp$system_lifetime, annual_growth = sp$gridcost_annual_growth,
                     method = sp$gridcost_method
-                ))
+                )
               print("grid_cost loaded")
-                feed_in( my_feed_in(
+                feed_in <- my_feed_in(
                     years = sp$system_lifetime, annual_growth = sp$feedin_annual_growth,
                     startdate = sp$start_date, method = sp$feedin_method,
                     fixed_seed = sp$fixed_seed, lastval = sp$feedin_lastval
-                ))
+                )
               print("feed_in loaded")  
-                elprice( my_elprice(
+                elprice <- my_elprice(
                     my_data_read_elprice_observed_data(), startdate = sp$start_date,
                     years = sp$system_lifetime, annual_growth = sp$elprice_annual_growth,
                     method = sp$elprice_method,
                     add_intraday_variability = sp$elprice_add_intraday_variability,
                     add_intraweek_variability = sp$elprice_add_intraweek_variability
-                ))
+                )
               print("elprice loaded")  
                 gc(full = TRUE)
                 }
@@ -314,27 +322,23 @@ server <- function(input, output, session) {
             # print("grid_cost: ")
             # glimpse(grid_cost$grid_cost)
             
-            energy_flows_enh <- CalculateFinancials(
-                energy_flows, elprice()$price_data, feed_in()$feed_in, grid_cost()$grid_cost, params = sp
-            )
-            gc(full = TRUE)
-            print("energy_flows_enh done")
-            #glimpse(energy_flows_enh)
-            
-            final_results(list(
-                summary = energy_flows_enh$summary_vals,
-                hourly = energy_flows_enh$df_hourly
+            final_results( CalculateFinancials(
+                energy_flows(), elprice$price_data, feed_in$feed_in, grid_cost$grid_cost, params = sp
             ))
+            
+            print("final_results done")
+            rm(elprice, feed_in, grid_cost)
+            gc(full = TRUE)
             calculations_done(TRUE)
             showNotification("Financial calculations complete", type = "message")
             
             
         }, error = function(e) {
-            showNotification(paste("Error in financial calculations:", e$message), type = "error")
+            showNotification(paste("Error in financial calculations:", e$message), type = "error", duration = 15)
         }, finally = {
             
-            shinyjs::show("chartsTab")
-            shinyjs::show("resultsTab")
+            showTab(inputId = "mainPanelTabs", target = "chartsTab")
+            showTab(inputId = "mainPanelTabs", target = "resultsTab")
             removeModal()
             print("step2 done")
         })
@@ -342,22 +346,25 @@ server <- function(input, output, session) {
     
     # Render summary table
     output$summary_table <- renderTable({
-        req(final_results())
-        final_results()$summary
-    })
+      shiny::req(final_results())
+      
+    transpose_this <- final_results()$summary_vals 
+    transpose_this %>% mutate(across(everything(), as.character)) %>%
+     pivot_longer(cols = everything(), names_to = "variable", values_to = "value")
+    })#end renderTable summary_table
     
     # Render interactive plot
     output$energy_plot <- renderPlotly({
-        req(final_results(), input$plot_date)
+      shiny::req(final_results(), input$plot_date)
         
-        df <- final_results()$hourly %>%
+        df <- final_results()$df_hourly %>%
             filter(as.Date(date) == as.Date(input$plot_date))
         
         validate(
-            need(nrow(df) > 0, "No data available for selected date")
+            shiny::need(nrow(df) > 0, "No data available for selected date")
         )
         
-        p <- plotDay(input$plot_date, df, system_params())  # Ensure plotDay() returns a ggplot
+        p <- plotDay(input$plot_date, df, system_params())  
         ggplotly(p) %>%
             layout(
                 hovermode = "x unified",
@@ -367,33 +374,33 @@ server <- function(input, output, session) {
                     title = "Battery SoC (kWh)"
                 )
             )
-    })
+    })#end renderPlotly 
     
     
     # render plots of inputs
     # output$elconsPlot <- renderPlot({
-    #     req(elcons())
+    #     shiny::req(elcons())
     #     elcons()$plot
     # })
     
     # output$solarPlot <- renderPlot({
-    #     req(solar())
+    #     shiny::req(solar())
     #     solar()$plot
     # })
     
     output$gridCostPlot <- renderPlot({
-        req(grid_cost())
-        grid_cost()$plot
+      shiny::req(final_results())
+        #grid_cost()$plot
     })
     
     output$feedInPlot <- renderPlot({
-        req(feed_in())
-        feed_in()$plot
+      shiny::req(final_results())
+        #feed_in()$plot
     })
     
     output$elpricePlot <- renderPlot({
-        req(elprice())
-        elprice()$plot
+      shiny::req(final_results())
+        #elprice()$plot
     })
     
     
@@ -405,20 +412,12 @@ server <- function(input, output, session) {
     
     # navigate to Results
     observe({
-        print(paste("observe final_results: final_results is", ifelse(is.null(final_results()), "NULL", "NOT NULL"))) 
+        print(paste("observe final_results: final_results is", ifelse(is.null(final_results()), "NULL", "calculated"))) 
         if (!is.null(final_results())) {
-            updateTabsetPanel(session, "mainPanelTabs", selected = "Results")
+            updateTabsetPanel(session, "mainPanelTabs", selected = "resultsTab")
         }
     })
     
-    
-    # Reset App button using session$reload()
-    observeEvent(input$reset_app, {
-        session$reload()
-    })
-    
-    
-  
     
     #for downloads of data:
     output$download_summary <- downloadHandler(
@@ -426,12 +425,8 @@ server <- function(input, output, session) {
             paste("summary_results.xlsx", sep = "")
         },
         content = function(file) {
-            req(final_results())  # Ensure data is available
-            
-            # Get the summary data
-            summary_data <- final_results()$summary
-            
-            # Write to an Excel file
+          shiny::req(final_results())  
+            summary_data <- final_results()$summary_vals
             writexl::write_xlsx(list("Summary" = summary_data), path = file)
         }
     )
@@ -442,12 +437,8 @@ server <- function(input, output, session) {
             paste("hourly_data.xlsx", sep = "")
         },
         content = function(file) {
-            req(final_results())  # Ensure data is available
-            
-            # Get the hourly data
-            hourly_data <- final_results()$hourly
-            
-            # Write to an Excel file
+          shiny::req(final_results()) 
+            hourly_data <- final_results()$df_hourly
             writexl::write_xlsx(list("Hourly Data" = hourly_data), path = file)
         }
     )

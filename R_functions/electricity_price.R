@@ -19,7 +19,7 @@ print("this is electricity_price.R file")
 
 #### define functions ####
 my_data_read_distrib_costs_observed_data <- function(filepath = "_static_data/cena_distribuce.xlsx") {
-  print(paste0("Reading from: ", filepath))
+  print(paste0("Reading grid cost observations from: ", filepath))
   distribution_costs <- readxl::read_excel(filepath, sheet = 1, range = "A7:D29") %>%
     rename(year = Rok, distr_costs = distribuce_prumer, service_costs = regulovane_slozky, valid_from = platnost_od) %>%
     mutate(grid_cost = distr_costs+service_costs
@@ -37,8 +37,8 @@ my_data_read_elprice_observed_data <- function(multiply_wholesale_by = 1.2 #whol
                                                , filepath = "_static_data/Czechia.csv"
                                                , filepath_fx = "_static_data/ECB_Data_Portal_long_20250207083750.xlsx") {
   # read el prices for CZ from eurostat
-  print(paste0("Reading from: ", filepath))
-  elprice_cz <- readr::read_csv(file = filepath) %>%
+  print(paste0("Reading el. price observations from: ", filepath))
+  elprice_cz <- readr::read_csv(file = filepath, show_col_types = FALSE) %>%
     mutate(
       # for datetime, use fixed timezone (no summer time, because with summer time, I get 2 observations for same hour or a missing obs.):
       # "Etc/GMT-1" time zone offset is UTC/GMT +1 hours
@@ -82,7 +82,11 @@ my_gridcost <- function(df = my_data_read_distrib_costs_observed_data()
                           , orig_data_where_available = TRUE
                           
 ) {
+  print(paste0("My grid cost started"))
+  
   if (fixed_seed) {set.seed(123)}
+  #check for method
+  if (!method %in% c("static", "linear", "last_w_growth")) {stop("Unknown method")}#endif
   
   startdate <- my_check_date(startdate)
   startyear <- substring(startdate, 1,4) %>% as.integer()  #start_date %>% lubridate::floor_date(start_date %>% lubridate::ymd())
@@ -158,6 +162,7 @@ my_gridcost <- function(df = my_data_read_distrib_costs_observed_data()
       select(-`.model`, -`grid_cost`)
     
   } else if (method %in% c("last_w_growth")) {
+    # take the last value from observations in range
     lastval <- df %>% #filter(year <= year(startdate)) %>% 
                tail(1) %>% select(grid_cost) %>% pull(1)
     future_prices_step2 <- future_years %>% mutate(grid_cost_fcast = lastval * (1 + annual_growth)^(0:(years-1)) )
@@ -207,6 +212,7 @@ my_feed_in <- function( years = 20
                       , fixed_seed = TRUE
                       , lastval #last value of price in kWh 
 ) {
+  print(paste0("My feed-in started"))
   startdate <- my_check_date(startdate)
   startyear <- substring(startdate, 1,4) %>% as.integer()  #start_date %>% lubridate::floor_date(start_date %>% lubridate::ymd())
   endyear <- startyear + years
@@ -254,15 +260,23 @@ my_elprice <- function(df
                           , years = 20
                           , annual_growth = 0.04
                           , startdate = '2025-01-01'
-                          , method = "linear" # "static", "linear", "historical", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw"
+                          , method = "linear" # "static", "linear", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw"
                           , fixed_seed = TRUE
                           , theta = 0.05
                           , add_intraday_variability = TRUE
                           , add_intraweek_variability = TRUE
 ) {
+  print(paste0("My el. price started"))
+  #check for method
+  if (!method %in% c("static", "linear", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw")) {stop("Unknown method")}#endif
+  
   startdate <- my_check_date(startdate)
   startyear <- substring(startdate, 1,4) %>% as.integer()  #start_date %>% lubridate::floor_date(start_date %>% lubridate::ymd())
   endyear <- startyear + years
+  
+  # last known price (avg. of 24 hours)
+  last_price <- mean(tail(df$price, 24), na.rm = TRUE)
+  print(paste0("last price: ", last_price %>% round(3)))
   
   startdate_orig <- startdate
   startdate <- startdate %>% as.Date() %>% with_tz(`Datetime (UTC)`, tzone = "Etc/GMT-1") 
@@ -388,20 +402,15 @@ my_elprice <- function(df
     future_prices_step2 <- tslm_model %>% forecast(new_data = future_prices_step0 %>% as_tsibble(index = datetime)) %>%  #new_data has to be tsibble!
       rename(price_method = .mean) %>%
       select(-`.model`, -`price`)
-  } else if (method %in% c("historical", "historical_w_growth")) { 
+  } else if (method %in% c("historical_w_growth")) { 
     #apply just historical trend (without seasonality)
     future_prices_step2 <- future_prices_step0 %>%
       left_join(decomposed_agg %>% select(month, weekday, hour, mean_trend)
                 , by = c("month" = "month", "weekday" = "weekday", "hour" = "hour")) %>%
       rename( 
-        price_method = mean_trend ) 
-    
-    if (method %in% c("historical_w_growth")) {
-      future_prices_step2 <- future_prices_step2 %>% 
-        mutate(price_method = price_method * exp(annual_growth * as.numeric(difftime(datetime, max(df$datetime)
-                                                                                     , units = "days") / 365)))
-    }
-    
+        price_method = mean_trend ) %>% 
+      mutate(price_method = price_method * exp(annual_growth * as.numeric(difftime(datetime, max(df$datetime)
+                                                                                   , units = "days") / 365)))
     
   } else if (method %in% c("random_walk", "random_walk_trend", "mean_reverting_rw")) {
     
@@ -567,7 +576,8 @@ my_elprice <- function(df
 #     stop("Input dataframe probably wrong, expected 'datetime' and 'price' columns")
 #   }
 #   
-#   last_price <- tail(df$price, 1)
+#   last_price < mean(tail(df$price, 24), na.rm = TRUE)
+#   #last_price <- tail(df$price, 1)
 #   future_timestamps <- seq( startdate, by = "1 hour", length.out = years * 8760)
 #   future_prices_step0 <- tibble(datetime = future_timestamps) %>%
 #     mutate(year = year(datetime)
