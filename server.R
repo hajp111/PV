@@ -77,8 +77,30 @@ server <- function(input, output, session) {
 
     # first button - Load Energy Data
     observeEvent(input$load_data, {
-        showModal(modalDialog("Loading energy data...", footer = NULL))
+        #showModal(modalDialog("Loading energy data...", footer = NULL))
         
+      # valid range for system lifetime
+      min_val <- 1
+      max_val <- 25
+      user_val <- input$system_lifetime
+      if (user_val < min_val) {
+        updateNumericInput(session, "system_lifetime", value = min_val)
+        validsyslife <- min_val
+        showNotification("System Lifetime enterd was out of bounds, set to minimum allowed.", type = "warning")
+      } else if (user_val > max_val) {
+        updateNumericInput(session, "system_lifetime", value = max_val)
+        validsyslife <- max_val
+        showNotification("System Lifetime enterd was out of bounds, set to maximum allowed.", type = "warning")
+      } else {
+        validsyslife <- input$system_lifetime
+      }#endif
+      
+      if (input$start_date <= '2026-01-01' %>% as.Date() & input$start_date >= '2020-01-01' %>% as.Date() ) { 
+        validstartdate <- format(input$start_date, "%Y-%m-%d") # ensure a string (in YYYY-MM-DD format)
+      } else {
+         validstartdate <- '2026-01-01'
+        }
+      
         tryCatch({
             # Convert percentage inputs to decimal form for processing
             sp <- list(
@@ -109,8 +131,8 @@ server <- function(input, output, session) {
                 annual_maintenance_cost = input$annual_maintenance_cost,
                 
                 # Date range
-                start_date = format(input$start_date, "%Y-%m-%d"), # ensure a string (in YYYY-MM-DD format)
-                system_lifetime = input$system_lifetime,
+                start_date = validstartdate,
+                system_lifetime = validsyslife,
                 lat = input$lat,
                 lon = input$lon,
                 
@@ -135,6 +157,10 @@ server <- function(input, output, session) {
             )
             
             system_params(sp)
+            
+            showModal(modalDialog("Loading solar and energy consumption data...", footer = NULL))
+            #removeModal()
+            
             
             if (sp$use_cache_data) {
                 # solar <- solar(readRDS("_cache/solar.Rds"))
@@ -175,6 +201,11 @@ server <- function(input, output, session) {
             print("df1 done")
             #glimpse(df1)
             #energy_flows <- CalculateEnergyFlows(df1, sp)
+            
+            removeModal()
+            showModal(modalDialog("Calculating expected energy flows...", footer = NULL))
+            
+            
             energy_flows(CalculateEnergyFlows(df1, sp)) 
             #df1 not needed anymore
             rm(df1)
@@ -211,7 +242,7 @@ server <- function(input, output, session) {
     # Second button - Load Financial Data and Calculate
     observeEvent(input$calculate_financials, {
       shiny::req(system_params(), energy_flows())
-        showModal(modalDialog("Calculating financials...", footer = NULL))
+        #showModal(modalDialog("Calculating financials...", footer = NULL))
         calculations_done(FALSE)
         
         tryCatch({
@@ -271,6 +302,8 @@ server <- function(input, output, session) {
           
           system_params(sp)
           
+          
+          showModal(modalDialog("Loading price-related data...", footer = NULL))
             
             if (sp$use_cache_data) {
                 grid_cost <- grid_cost(readRDS("_cache/grid_cost.Rds") )
@@ -278,23 +311,28 @@ server <- function(input, output, session) {
                 elprice <- elprice( readRDS("_cache/elprice.Rds") )
             } else {
                 grid_cost <- my_gridcost(
-                    my_data_read_distrib_costs_observed_data(), startdate = sp$start_date,
-                    years = sp$system_lifetime, annual_growth = sp$gridcost_annual_growth,
+                    my_data_read_distrib_costs_observed_data()
+                    , startdate = sp$start_date,
+                    , years = sp$system_lifetime, annual_growth = sp$gridcost_annual_growth,
                     method = sp$gridcost_method
                 )
               print("grid_cost loaded")
                 feed_in <- my_feed_in(
-                    years = sp$system_lifetime, annual_growth = sp$feedin_annual_growth,
-                    startdate = sp$start_date, method = sp$feedin_method,
-                    fixed_seed = sp$fixed_seed, lastval = sp$feedin_lastval
+                    years = sp$system_lifetime
+                    , annual_growth = sp$feedin_annual_growth
+                    , startdate = sp$start_date
+                    , method = sp$feedin_method
+                    , fixed_seed = sp$fixed_seed
+                    , lastval = sp$feedin_lastval
                 )
               print("feed_in loaded")  
                 elprice <- my_elprice(
-                    my_data_read_elprice_observed_data(), startdate = sp$start_date,
-                    years = sp$system_lifetime, annual_growth = sp$elprice_annual_growth,
-                    method = sp$elprice_method,
-                    add_intraday_variability = sp$elprice_add_intraday_variability,
-                    add_intraweek_variability = sp$elprice_add_intraweek_variability
+                    my_data_read_elprice_observed_data()
+                    , startdate = sp$start_date
+                    , years = sp$system_lifetime, annual_growth = sp$elprice_annual_growth
+                    , method = sp$elprice_method
+                    , add_intraday_variability = sp$elprice_add_intraday_variability
+                    , add_intraweek_variability = sp$elprice_add_intraweek_variability
                 )
               print("elprice loaded")  
                 gc(full = TRUE)
@@ -322,6 +360,9 @@ server <- function(input, output, session) {
             # print("grid_cost: ")
             # glimpse(grid_cost$grid_cost)
             
+          removeModal()
+          showModal(modalDialog("Calculating financials...", footer = NULL))
+          
             final_results( CalculateFinancials(
                 energy_flows(), elprice$price_data, feed_in$feed_in, grid_cost$grid_cost, params = sp
             ))

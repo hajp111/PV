@@ -39,9 +39,9 @@ ui <- fluidPage(
             numericInput("lon", "Longitude", 16.998),
             
             h4("Date Range"),
-            dateInput("start_date", "Start Date", value = "2025-01-01"),
+            dateInput("start_date", "Start Date", value = "2025-01-01", max = "2026-01-01"),  #max range for HH energy data is 2073-12-31
             numericInput("system_lifetime", "System Lifetime (years)",
-                         value = 20, min = 1, step = 1, max = 50)
+                         value = 20, min = 1, step = 1, max = 25)
         ),
         
         mainPanel(
