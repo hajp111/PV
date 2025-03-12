@@ -143,6 +143,7 @@ server <- function(input, output, session) {
                 # Electricity price parameters
                 elprice_method = input$elprice_method,
                 elprice_annual_growth = input$elprice_annual_growth,
+                elprice_lastval = input$elprice_lastval,
                 elprice_add_intraday_variability = input$elprice_add_intraday_variability,
                 elprice_add_intraweek_variability = input$elprice_add_intraweek_variability,
                 
@@ -153,7 +154,8 @@ server <- function(input, output, session) {
                 
                 # Grid cost parameters
                 gridcost_method = input$gridcost_method,
-                gridcost_annual_growth = input$gridcost_annual_growth
+                gridcost_annual_growth = input$gridcost_annual_growth,
+                gridcost_lastval = input$gridcost_lastval
             )
             
             system_params(sp)
@@ -287,6 +289,7 @@ server <- function(input, output, session) {
             # Electricity price parameters
             elprice_method = input$elprice_method,
             elprice_annual_growth = input$elprice_annual_growth,
+            elprice_lastval = input$elprice_lastval,
             elprice_add_intraday_variability = input$elprice_add_intraday_variability,
             elprice_add_intraweek_variability = input$elprice_add_intraweek_variability,
             
@@ -297,7 +300,8 @@ server <- function(input, output, session) {
             
             # Grid cost parameters
             gridcost_method = input$gridcost_method,
-            gridcost_annual_growth = input$gridcost_annual_growth
+            gridcost_annual_growth = input$gridcost_annual_growth,
+            gridcost_lastval = input$gridcost_lastval
           )
           
           system_params(sp)
@@ -313,8 +317,9 @@ server <- function(input, output, session) {
                 grid_cost <- my_gridcost(
                     my_data_read_distrib_costs_observed_data()
                     , startdate = sp$start_date,
-                    , years = sp$system_lifetime, annual_growth = sp$gridcost_annual_growth,
-                    method = sp$gridcost_method
+                    , years = sp$system_lifetime, annual_growth = sp$gridcost_annual_growth
+                    , method = sp$gridcost_method
+                    , lastval = sp$gridcost_lastval
                 )
               print("grid_cost loaded")
                 feed_in <- my_feed_in(
@@ -333,6 +338,7 @@ server <- function(input, output, session) {
                     , method = sp$elprice_method
                     , add_intraday_variability = sp$elprice_add_intraday_variability
                     , add_intraweek_variability = sp$elprice_add_intraweek_variability
+                    , lastval = sp$elprice_lastval
                 )
               print("elprice loaded")  
                 gc(full = TRUE)

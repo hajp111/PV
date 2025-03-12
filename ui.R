@@ -39,7 +39,7 @@ ui <- fluidPage(
             numericInput("lon", "Longitude", 16.998),
             
             h4("Date Range"),
-            dateInput("start_date", "Start Date", value = "2025-01-01", max = "2026-01-01"),  #max range for HH energy data is 2073-12-31
+            dateInput("start_date", "Start Date", value = "2025-01-01", max = "2028-01-01"),  #max range for HH energy data is 2073-12-31
             numericInput("system_lifetime", "System Lifetime (years)",
                          value = 20, min = 1, step = 1, max = 25)
         ),
@@ -91,6 +91,7 @@ ui <- fluidPage(
                          selectInput("elprice_method", "Price Method",
                                      choices = c("Static" = "static", 
                                                  "Linear" = "linear", 
+                                                 "Provided Value with Growth" = "last_w_growth",
                                                  "Historical with Growth" = "historical_w_growth",
                                                  "Random Walk" = "random_walk", 
                                                  "Random Walk with Trend" = "random_walk_trend", 
@@ -98,24 +99,30 @@ ui <- fluidPage(
                          helpText("Method for electricity price projection"),
                          numericInput("elprice_annual_growth", "Annual Growth", 0.05, step = 0.01),
                          helpText("Annual price growth rate (decimal, e.g., 0.05 = 5%)"),
+                         numericInput("elprice_lastval", "Provided El. Price (CZK/kWh) to apply (only for Last Value with Growth)", 2.5, step = 0.1),
+                         helpText("Electricity price to apply the growth rate to"),
                          checkboxInput("elprice_add_intraday_variability", "Intraday Variability", TRUE),
                          helpText("Add daily price patterns"),
                          checkboxInput("elprice_add_intraweek_variability", "Intraweek Variability", TRUE),
                          helpText("Add weekday price patterns"))
                 
                 , tabPanel("Feed-in Tariff", value = "feedinTab",
-                         selectInput("feedin_method", "Method", choices = c("Historical with Growth" = "last_w_growth")),
-                         numericInput("feedin_lastval", "Last Value (CZK/kWh)", 1.1, min = 0),
+                         selectInput("feedin_method", "Method", choices = c("Provided Value with Growth" = "last_w_growth")),
+                         numericInput("feedin_lastval", "Provided Value (CZK/kWh)", 1.1, min = 0),
                          numericInput("feedin_annual_growth", "Annual Growth", 0.01, step = 0.01),
                          helpText("Annual feed-in tariff growth rate (decimal, e.g., 0.01 = 1%)"))
                 
                 , tabPanel("Grid Costs", value = "gridcostTab",
                          selectInput("gridcost_method", "Method", 
                                      choices = c("Static" = "static", 
-                                                 "Linear" = "linear", 
-                                                 "Historical with Growth" = "last_w_growth" )),
+                                                 "Linear" = "linear",
+                                                 "Provided Value with Growth" = "last_w_growth",
+                                                 "Historical with Growth" = "historical_w_growth" )),
                          numericInput("gridcost_annual_growth", "Annual Growth", 0.04, step = 0.01),
-                         helpText("Annual grid cost growth rate (decimal, e.g., 0.04 = 4%)"))
+                         helpText("Annual grid cost growth rate (decimal, e.g., 0.04 = 4%)"),
+                         numericInput("gridcost_lastval", "Provided Grid Cost (CZK/kWh) to apply (only for Last Value with Growth)", 2.0, step = 0.1),
+                         helpText("Grid cost to apply the growth rate to (in CZK/kWh)")
+                         )
            
                 , tabPanel("Observe Input Data Charts", value = "chartsTab",
                          plotOutput("elconsPlot"),
@@ -125,10 +132,10 @@ ui <- fluidPage(
                          plotOutput("elpricePlot")
                 )
                 , tabPanel("Results", value = "resultsTab",
-                         dateInput("plot_date", "Select Date", value = Sys.Date()),
                          h3("Financial Summary"),
                          tableOutput("summary_table"),
                          h3("Hourly Energy Flows"),
+                         dateInput("plot_date", "Select Date", value = Sys.Date()),
                          plotlyOutput("energy_plot"),
                          helpText("Plot shows energy flows and battery state for the selected date"),
                          downloadButton("download_summary", "Download Summary (Excel)", class = "btn btn-primary"),

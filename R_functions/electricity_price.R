@@ -76,11 +76,11 @@ my_gridcost <- function(df = my_data_read_distrib_costs_observed_data()
                           , years = 20
                           , annual_growth = 0.04
                           , startdate = '2025-01-01'
-                          , method = "linear" # "static", "linear", "last_w_growth"
+                          , method = "linear" # "static", "linear", "last_w_growth", "historical_w_growth"
                           , replace2023 = TRUE
                           , fixed_seed = TRUE
                           , orig_data_where_available = TRUE
-                          
+                          , lastval # if method == last_w_growth and lastval not set, it uses the last available data as in historical_w_growth
 ) {
   print(paste0("My grid cost started"))
   
@@ -161,12 +161,17 @@ my_gridcost <- function(df = my_data_read_distrib_costs_observed_data()
       rename(grid_cost_fcast = .mean) %>%
       select(-`.model`, -`grid_cost`)
     
-  } else if (method %in% c("last_w_growth")) {
+  } else if (method %in% c("historical_w_growth")) {
     # take the last value from observations in range
     lastval <- df %>% #filter(year <= year(startdate)) %>% 
                tail(1) %>% select(grid_cost) %>% pull(1)
     future_prices_step2 <- future_years %>% mutate(grid_cost_fcast = lastval * (1 + annual_growth)^(0:(years-1)) )
-  }
+  } else if (method %in% c("last_w_growth")) {
+    #if lastval missing, set the same way as in "historical_w_growth" method
+    if (missing(lastval)) {lastval <- df %>% #filter(year <= year(startdate)) %>% 
+      tail(1) %>% select(grid_cost) %>% pull(1)}
+    future_prices_step2 <- future_years %>% mutate(grid_cost_fcast = lastval * (1 + annual_growth)^(0:(years-1)) )
+    }#endif
   
 
   
@@ -260,15 +265,16 @@ my_elprice <- function(df
                           , years = 20
                           , annual_growth = 0.04
                           , startdate = '2025-01-01'
-                          , method = "linear" # "static", "linear", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw"
+                          , method = "linear" # "static", "linear", "last_w_growth", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw"
                           , fixed_seed = TRUE
                           , theta = 0.05
                           , add_intraday_variability = TRUE
                           , add_intraweek_variability = TRUE
+                          , lastval
 ) {
   print(paste0("My el. price started"))
   #check for method
-  if (!method %in% c("static", "linear", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw")) {stop("Unknown method")}#endif
+  if (!method %in% c("static", "linear", "last_w_growth", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw")) {stop("Unknown method")}#endif
   
   startdate <- my_check_date(startdate)
   startyear <- substring(startdate, 1,4) %>% as.integer()  #start_date %>% lubridate::floor_date(start_date %>% lubridate::ymd())
@@ -277,6 +283,10 @@ my_elprice <- function(df
   # last known price (avg. of 24 hours)
   last_price <- mean(tail(df$price, 24), na.rm = TRUE)
   print(paste0("last price: ", last_price %>% round(3)))
+  
+  if (missing(lastval)) {
+    lastval <- last_price
+  }#
   
   startdate_orig <- startdate
   startdate <- startdate %>% as.Date() %>% with_tz(`Datetime (UTC)`, tzone = "Etc/GMT-1") 
@@ -383,7 +393,7 @@ my_elprice <- function(df
       , is_weekend = weekday %in% c(6,7)
     )
   
-  if (!( method %in% c("static", "linear", "historical", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw"))) {
+  if (!( method %in% c("static", "linear", "historical",  "last_w_growth", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw"))) {
     stop("Unknown method, stopping")
   }
   
@@ -404,6 +414,11 @@ my_elprice <- function(df
       select(-`.model`, -`price`)
     #future_prices_step2 %>% head(150) %>% ggplot(aes(x=datetime, y = price_method)) + geom_line()
     
+  } else if (method %in% c("last_w_growth")) { 
+    #apply lastval and growth 
+    future_prices_step2 <- future_prices_step0 %>%
+      mutate(price_method = lastval * exp(annual_growth * as.numeric(difftime(datetime, max(df$datetime)
+                                                                                   , units = "days") / 365)))
   } else if (method %in% c("historical_w_growth")) { 
     #apply just historical trend (without seasonality)
     future_prices_step2 <- future_prices_step0 %>%
