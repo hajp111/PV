@@ -310,7 +310,7 @@ my_elprice <- function(df
             , hour = hour(datetime) %>% as.integer()
             , weekday = wday(datetime, week_start = 1))
   
-  decomposed %>% filter(datetime >='2020-01-01' & datetime <='2020-04-30')   %>% autoplot()
+  #decomposed %>% filter(datetime >='2020-01-01' & datetime <='2020-04-30')   %>% autoplot()
   
   
   
@@ -402,6 +402,8 @@ my_elprice <- function(df
     future_prices_step2 <- tslm_model %>% forecast(new_data = future_prices_step0 %>% as_tsibble(index = datetime)) %>%  #new_data has to be tsibble!
       rename(price_method = .mean) %>%
       select(-`.model`, -`price`)
+    #future_prices_step2 %>% head(150) %>% ggplot(aes(x=datetime, y = price_method)) + geom_line()
+    
   } else if (method %in% c("historical_w_growth")) { 
     #apply just historical trend (without seasonality)
     future_prices_step2 <- future_prices_step0 %>%
@@ -466,6 +468,7 @@ my_elprice <- function(df
       # add to price_method
       # mutate(price = price_method + generated_hour_component) %>%
       select(-c(mean_season_day:season_week_950)) 
+  
     
   } else {
     future_prices <- future_prices %>% mutate(generated_hour_component = 0)
@@ -484,14 +487,25 @@ my_elprice <- function(df
       # add to price_method
       #mutate(price = price_method + generated_week_component) %>%
       select(-c(mean_season_day:season_week_950)) 
+    
   } else {
     future_prices <- future_prices %>% mutate(generated_week_component = 0)
   }#end add_intraweek_variability
   
+  # variability already included in "linear" method, so if/else here to avoid adding the intraday/intraweek components twice
+  if (method %in% c("linear")) {
+    future_prices <- future_prices %>%
+      mutate(# noise_multiplier1 = sample(c(-1, 1), size = n(), replace = TRUE)
+        price = price_method)  
+  } else {
   future_prices <- future_prices %>%
     mutate(# noise_multiplier1 = sample(c(-1, 1), size = n(), replace = TRUE)
       price = price_method + generated_hour_component + generated_week_component)
+  }#endif
   
+  
+  #future_prices %>% head(150) %>% ggplot() + geom_line(aes(x=datetime, y = price, color = "red"))
+  #future_prices %>% head(150) %>% ggplot() + geom_line(aes(x=datetime, y = price_method)) + geom_line(aes(x=datetime, y = price, color = "red"))
   
   # plt <- ggplot() + 
   #   geom_line(data = , aes(x=datetime, y = price), alpha = 0.3) +
