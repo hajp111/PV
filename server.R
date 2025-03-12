@@ -389,7 +389,37 @@ server <- function(input, output, session) {
     output$summary_table <- renderTable({
       shiny::req(final_results())
       
-    transpose_this <- final_results()$summary_vals 
+    transpose_this <- final_results()$summary_vals %>% select( date_range
+                                                              # , discounted_net_cashflow_without_PV
+                                                              # , discounted_net_cashflow_explicit
+                                                              # , discounted_maintenance_costs
+                                                              # , discounted_net_cashflow_explicit_w_maintenance
+                                                               #
+                                                              # , discounted_benefit_wo_maintenance
+                                                               , discounted_benefit
+                                                              # , discounted_benefit_alt
+                                                               , NPV
+                                                              # , NPV_alt
+                                                               #
+                                                               , total_electricity_generated
+                                                              # , grid_export 
+                                                              # , grid_import 
+                                                              # , household_el_consumption 
+                                                              # , elcons_saved
+                                                              # , feed_in_revenue_nominal
+                                                               # for LOCE calculation
+                                                              # , installation_cost
+                                                              # , Present_Value_maintenance_costs
+                                                               , Present_Value_total_cost
+                                                              # , discounted_total_el_produced
+                                                               , LCOE
+                                                               , annualized_rate_of_return
+                                                              # , FV
+                                                               , annualized_rate_of_return_alt #should be the same as annualized_rate_of_return
+                                                              , breakeven_feedin
+                                                              , breakeven_price
+                                                              )
+    #show this as a table:
     transpose_this %>% mutate(across(everything(), as.character)) %>%
      pivot_longer(cols = everything(), names_to = "variable", values_to = "value")
     })#end renderTable summary_table

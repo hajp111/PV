@@ -94,9 +94,9 @@ elprice_data %>% glimpse()
 
 } else {
   #source the data and call the functions 
-  source("R/read_irradiance_api.R")
-  source("R/residential_electricity_load_profile.R")
-  source("R/electricity_price.R")
+  source("R_functions/read_irradiance_api.R")
+  source("R_functions/residential_electricity_load_profile.R")
+  source("R_functions/electricity_price.R")
   
   #get solar data (API call) - returns list with data and metadata, hourly data in solar$solar_data
   # datetime, date, year, month, day, weekday, hour, P  (P is in Watts, change to kWh later)

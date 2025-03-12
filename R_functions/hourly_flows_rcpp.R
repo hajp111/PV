@@ -8,20 +8,20 @@ print("this is hourly_flows_rcpp.R file")
 #combine solar and elcons data to calculate energy flows (financial value to be calculated in a separate function)
 myCombineConsAndSolar <- function(solar_data
                           , elcons
-                          # , elprice
+                          # , elprice_data
                           # , feed_in_data
                           # , grid_cost_data
                           ) {
 print("myCombineConsAndSolar started")  
 solar_data <- solar_data %>% select(datetime, date, hour, P_kWh) 
 elcons <- elcons %>% select(datetime, date, hour, cons_kWh)
-# elprice <- elprice %>% select(datetime, date, hour, price)
+# elprice_data <- elprice_data %>% select(datetime, date, hour, price)
 # feed_in_data <- feed_in_data %>% select(datetime, date, hour, feed_in)
 # grid_cost_data <- grid_cost_data %>% select(datetime, date, hour, grid_cost)
 
 out <- solar_data %>% 
   inner_join(elcons, by = c("datetime", "date", "hour")) %>%
-  # inner_join(elprice, by = c("datetime", "date", "hour") ) %>%
+  # inner_join(elprice_data, by = c("datetime", "date", "hour") ) %>%
   # inner_join(feed_in_data, by = c("datetime", "date", "hour")) %>%
   # inner_join(grid_cost_data, by = c("datetime", "date", "hour")) %>%
   mutate(# datetime
@@ -40,30 +40,30 @@ return(out)
 
 #combine energy flows with prices (easier to use different prices then)
 myCombineFlowsPrices <- function(energy_flows
-                          , elprice
+                          , elprice_data
                           , feed_in_data
                           , grid_cost_data
 ) {
   # solar_data <- solar_data$solar_data %>% mutate(P_kWh = P / 10^3) %>% select(datetime, date, hour, P_kWh) 
   # elcons <- elcons %>% select(datetime, date, hour, cons_kWh)
-  elprice <- elprice %>% select(datetime, date, hour, price)
+  elprice_data <- elprice_data %>% select(datetime, date, hour, price)
   feed_in_data <- feed_in_data %>% select(datetime, date, hour, feed_in)
   grid_cost_data <- grid_cost_data %>% select(datetime, date, hour, grid_cost)
   
   cat("Dimensions before joins: energy_flows:", dim(energy_flows),  "\n"
-      , "elprice:", dim(elprice),  "\n"
+      , "elprice:", dim(elprice_data),  "\n"
       , "feed_in:", dim(feed_in_data),  "\n"
       , "grid_cost:", dim(grid_cost_data), "\n")
   
   # Check for matching keys
   cat("Date range in energy_flows:", min(energy_flows$date), "to", max(energy_flows$date), "\n")
-  cat("Date range in elprice:", min(elprice$date), "to", max(elprice$date), "\n")
+  cat("Date range in elprice:", min(elprice_data$date), "to", max(elprice_data$date), "\n")
   cat("Date range in feed_in:", min(feed_in_data$date), "to", max(feed_in_data$date), "\n")
   cat("Date range in grid_cost:", min(grid_cost_data$date), "to", max(grid_cost_data$date), "\n")
   
   
   out <- energy_flows %>%
-    inner_join(elprice, by = c("datetime", "date", "hour") ) %>%
+    inner_join(elprice_data, by = c("datetime", "date", "hour") ) %>%
     inner_join(feed_in_data, by = c("datetime", "date", "hour")) %>%
     inner_join(grid_cost_data, by = c("datetime", "date", "hour")) #%>%
     # mutate(# datetime
@@ -195,17 +195,17 @@ CalculateFinancials_auxMutate <- function(energy_flows_w_prices, params) {
 }#endfunction CalculateFinancials_auxMutate
 
 CalculateFinancials <- function(energy_flows
-                                 , elprice
+                                 , elprice_data
                                  , feed_in_data
                                  , grid_cost_data
                                  , params
                                  ) {
   
   #DEBUG change elprice
-  # elprice <- elprice %>% mutate(price = 50)
+  # elprice_data <- elprice_data %>% mutate(price = 50)
   
   # enhance energy flows with prices and calculate financials
-  energy_flows_w_prices <- myCombineFlowsPrices(energy_flows = energy_flows, elprice = elprice, feed_in_data = feed_in_data, grid_cost_data = grid_cost_data)
+  energy_flows_w_prices <- myCombineFlowsPrices(energy_flows = energy_flows, elprice_data = elprice_data, feed_in_data = feed_in_data, grid_cost_data = grid_cost_data)
   # energy_flows_w_prices %>% glimpse()
   
   # calculate present value
@@ -224,36 +224,43 @@ CalculateFinancials <- function(energy_flows
   
   # create summary to be returned along with the hourly data
   summary_vals <- tibble(
-           mindate = energy_flows_w_prices$date %>% min() %>% format("%Y-%m-%d")
-           , maxdate = energy_flows_w_prices$date %>% max() %>% format("%Y-%m-%d")
-           , discounted_net_cashflow_without_PV = sum(energy_flows_w_prices$discounted_net_cashflow_without_PV)
+           date_range = paste0( energy_flows_w_prices$date %>% min() %>% format("%Y-%m-%d"), " - ",  energy_flows_w_prices$date %>% max() %>% format("%Y-%m-%d"))
+           , date_range_years = (difftime(energy_flows_w_prices$date %>% max(), energy_flows_w_prices$date %>% min(), units = "days") %>% as.numeric() / 365.25) %>% round(2)
+           , discounted_net_cashflow_without_PV = sum(energy_flows_w_prices$discounted_net_cashflow_without_PV) %>% round(1)
            , discounted_net_cashflow_explicit = sum(energy_flows_w_prices$discounted_net_cashflow_explicit)
-           , discounted_maintenance_costs = paste0( sum(energy_flows_w_prices$discounted_maintenance_costs), " Annually: ", sum(energy_flows_w_prices$discounted_maintenance_costs) / (params$system_lifetime))
-           , discounted_net_cashflow_explicit_w_maintenance = sum(energy_flows_w_prices$discounted_net_cashflow_explicit_w_maintenance)
+           , discounted_maintenance_costs = paste0( sum(energy_flows_w_prices$discounted_maintenance_costs) %>% round(1), " Annually: ", (sum(energy_flows_w_prices$discounted_maintenance_costs) / (params$system_lifetime)) %>% round(0) )
+           , discounted_net_cashflow_explicit_w_maintenance = sum(energy_flows_w_prices$discounted_net_cashflow_explicit_w_maintenance) %>% round(3)
            #
-           , discounted_benefit_wo_maintenance = sum(energy_flows_w_prices$discounted_benefit_wo_maintenance) 
-           , discounted_benefit = sum(energy_flows_w_prices$discounted_benefit)
-           , discounted_benefit_alt = sum(energy_flows_w_prices$discounted_benefit_alt)
-           , NPV = sum(energy_flows_w_prices$discounted_benefit) - params$installation_cost  #benefit has maintenance costs included, compares with baseline scenario of no PV installation
-           , NPV_alt = sum(energy_flows_w_prices$discounted_benefit_wo_maintenance) - params$installation_cost - sum(energy_flows_w_prices$discounted_maintenance_costs)
+           , discounted_benefit_wo_maintenance = sum(energy_flows_w_prices$discounted_benefit_wo_maintenance) %>% round(1)
+           , discounted_benefit = sum(energy_flows_w_prices$discounted_benefit) %>% round(1)
+           , discounted_benefit_alt = sum(energy_flows_w_prices$discounted_benefit_alt) %>% round(1) #should be the same as discounted_benefit
+           , NPV = (sum(energy_flows_w_prices$discounted_benefit) - params$installation_cost) %>% round(0)  #benefit has maintenance costs included, compares with baseline scenario of no PV installation
+           , NPV_alt = (sum(energy_flows_w_prices$discounted_benefit_wo_maintenance) - params$installation_cost - sum(energy_flows_w_prices$discounted_maintenance_costs)) %>% round(0)  #should be the same as NPV
+           , profitable_investment = ifelse(NPV>=0, yes = TRUE, no = FALSE)
            #
-           , total_energy_produced = sum(energy_flows_w_prices$PV_available)
-           , grid_export = sum(energy_flows_w_prices$grid_export)
-           , grid_import = sum(energy_flows_w_prices$grid_import)
-           , household_el_consumption = sum(energy_flows_w_prices$cons_kWh)
+           , total_electricity_generated = sum(energy_flows_w_prices$PV_available)
+           , grid_export = sum(energy_flows_w_prices$grid_export) %>% round(1)
+           , grid_import = sum(energy_flows_w_prices$grid_import) %>% round(1)
+           , household_el_consumption = sum(energy_flows_w_prices$cons_kWh) %>% round(1)
            , elcons_saved = household_el_consumption - grid_import
-           , feed_in_revenue_nominal = sum(energy_flows_w_prices$revenue_from_feed_in)
+           , feed_in_revenue_nominal = sum(energy_flows_w_prices$revenue_from_feed_in) %>% round(1)
            # for LOCE calculation
            , installation_cost = params$installation_cost 
-           , Present_Value_maintenance_costs = sum(energy_flows_w_prices$discounted_maintenance_costs)
-           , Present_Value_total_cost = (params$installation_cost + sum(energy_flows_w_prices$discounted_maintenance_costs))
+           , Present_Value_maintenance_costs = sum(energy_flows_w_prices$discounted_maintenance_costs) %>% round(0)
+           , Present_Value_total_cost = ((params$installation_cost + sum(energy_flows_w_prices$discounted_maintenance_costs))) %>% round(0)
            , discounted_total_el_produced = sum(energy_flows_w_prices$discounted_PV_available)
-           , LCOE = Present_Value_total_cost / discounted_total_el_produced %>% round(3)
-           , DEBUG_elcons_x_price = mean(energy_flows_w_prices$price) * elcons_saved
-           , DEBUG_elprice = paste0("Min: ", min(energy_flows_w_prices$price) %>% round(1), " Max: ", max(energy_flows_w_prices$price) %>% round(1), " Mean: ", mean(energy_flows_w_prices$price) %>% round(1))
-           , DEBUG_feed_in =  paste0("Min: ", min(energy_flows_w_prices$feed_in) %>% round(1), " Max: ", max(energy_flows_w_prices$feed_in) %>% round(1), " Mean: ", mean(energy_flows_w_prices$feed_in) %>% round(1))
-           , DEBUG_grid_cost = paste0("Min: ", min(energy_flows_w_prices$grid_cost) %>% round(1), " Max: ", max(energy_flows_w_prices$grid_cost) %>% round(1), " Mean: ", mean(energy_flows_w_prices$grid_cost) %>% round(1))
+           , LCOE = (Present_Value_total_cost / discounted_total_el_produced) %>% round(2)
+           , annualized_rate_of_return = (-1 + ( (1+ NPV/installation_cost)^(1/date_range_years) ) * (1+params$discount_rate)) %>% round(4)  # output like 0.03 means annualized rate of return of 3%
+           , FV = ((installation_cost + NPV)*(1+params$discount_rate)^date_range_years) %>% round(1)
+           , annualized_rate_of_return_alt = (-1 + ( FV/installation_cost ) ^ (1/date_range_years)) %>% round(4)  #CAGR formula: -1+ (end_vale / start_value)^(1/years),  should be the same as annualized_rate_of_return
+           , breakeven_feedin = FindBreakevenFeedIn(hourly_energy_flows = energy_flows_w_prices, params = params) %>% round(2)
+           , breakeven_price = FindBreakevenPrice(hourly_energy_flows = energy_flows_w_prices, params = params) %>% round(2)
+      #     , DEBUG_elcons_x_price = mean(energy_flows_w_prices$price) * elcons_saved
+      #     , DEBUG_elprice = paste0("Min: ", min(energy_flows_w_prices$price) %>% round(1), " Max: ", max(energy_flows_w_prices$price) %>% round(1), " Mean: ", mean(energy_flows_w_prices$price) %>% round(1))
+      #     , DEBUG_feed_in =  paste0("Min: ", min(energy_flows_w_prices$feed_in) %>% round(1), " Max: ", max(energy_flows_w_prices$feed_in) %>% round(1), " Mean: ", mean(energy_flows_w_prices$feed_in) %>% round(1))
+      #     , DEBUG_grid_cost = paste0("Min: ", min(energy_flows_w_prices$grid_cost) %>% round(1), " Max: ", max(energy_flows_w_prices$grid_cost) %>% round(1), " Mean: ", mean(energy_flows_w_prices$grid_cost) %>% round(1))
           )
+
 # summary_vals %>% glimpse()
   #prepare output
   output = list(
@@ -292,6 +299,7 @@ BreakevenPrice <- function(new_fixed_val
 
 # auxiliary function to provide closure (to pass more than one parameter)
 FindBreakevenFeedIn <- function(hourly_energy_flows, params) {
+  print("running FindBreakevenFeedIn()")
   # closure to allow uniroot to read energy_flows and system_params
   BreakevenFeedIn_fixed <- function(new_fixed_val) {
     BreakevenFeedIn(new_fixed_val, hourly_energy_flows, params)
@@ -304,6 +312,7 @@ FindBreakevenFeedIn <- function(hourly_energy_flows, params) {
 
 # auxiliary function to provide closure (to pass more than one parameter)
 FindBreakevenPrice <- function(hourly_energy_flows, params) {
+  print("running FindBreakevenPrice()")
   # closure to allow uniroot to read energy_flows and system_params
   BreakevenPrice_fixed <- function(new_fixed_val) {
     BreakevenPrice(new_fixed_val, hourly_energy_flows, params)
