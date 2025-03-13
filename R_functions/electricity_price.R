@@ -86,7 +86,7 @@ my_gridcost <- function(df = my_data_read_distrib_costs_observed_data()
   
   if (fixed_seed) {set.seed(123)}
   #check for method
-  if (!method %in% c("static", "linear", "last_w_growth")) {stop("Unknown method")}#endif
+  if (!method %in% c("static", "linear", "last_w_growth", "historical_w_growth")) {stop("Unknown method for grid cost calculation")}#endif
   
   startdate <- my_check_date(startdate)
   startyear <- substring(startdate, 1,4) %>% as.integer()  #start_date %>% lubridate::floor_date(start_date %>% lubridate::ymd())
@@ -274,7 +274,7 @@ my_elprice <- function(df
 ) {
   print(paste0("My el. price started"))
   #check for method
-  if (!method %in% c("static", "linear", "last_w_growth", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw")) {stop("Unknown method")}#endif
+  if (!method %in% c("static", "linear", "last_w_growth", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw")) {stop("Unknown method for el. price calculation")}#endif
   
   startdate <- my_check_date(startdate)
   startyear <- substring(startdate, 1,4) %>% as.integer()  #start_date %>% lubridate::floor_date(start_date %>% lubridate::ymd())
@@ -393,9 +393,7 @@ my_elprice <- function(df
       , is_weekend = weekday %in% c(6,7)
     )
   
-  if (!( method %in% c("static", "linear", "historical",  "last_w_growth", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw"))) {
-    stop("Unknown method, stopping")
-  }
+
   
   if (method %in% c("static")) {
     mu <- mean(df$price, na.rm = TRUE)
