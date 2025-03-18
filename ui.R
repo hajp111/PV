@@ -58,8 +58,9 @@ ui <- fluidPage(
                          helpText("Minimum state of charge to avoid battery damage"),
                          numericInput("battery_max_soc", "Max SOC (%)", 100, min = 0, max = 100, step = 1),
                          helpText("Maximum state of charge (100% = full capacity)"),
-                         numericInput("battery_degradation", "Degradation Rate/year", 0.01, min = 0, max = 1, step = 0.01),
-                         helpText("Annual battery capacity degradation rate (decimal, e.g., 0.01 = 1%)"))
+                         numericInput("battery_degradation", "Degradation Rate/year", 0.01, min = 0, max = 1, step = 0.01),  #degradation of 1.1% annualy corresponds to decrease to 80% in 20 years
+                         helpText("Annual battery capacity degradation rate (decimal, e.g., 0.01 = 1%)"),
+                         helpText("Degredation to 80% in 20 years corresponds to about 1.1% annual degredation rate"))
                 
                 , tabPanel("PV Parameters", value = "pvTab",
                          numericInput("PV_peakpower", "Peak Power (kWp)", 4.5, min = 0, max = 20),
@@ -71,6 +72,7 @@ ui <- fluidPage(
                          helpText("Panel orientation (0° = South, 90° = West, -90° = East)"),
                          numericInput("PV_degradation", "Degradation Rate/year", 0.01, min = 0, max = 1, step = 0.01),
                          helpText("Annual PV panel degradation rate (decimal, e.g., 0.01 = 1%)"),
+                         helpText("Degredation to 80% in 20 years corresponds to about 1.1% annual degredation rate"),
                          numericInput("PV_system_own_consumption", "System Consumption (kWh/h)", 0.03, min = 0),
                          helpText("Constant energy consumption of the PV system (inverter, etc.)"),
                          numericInput("PV_add_PV_noise", "PV Noise Multiplier", 0.0, min = 0),
@@ -99,7 +101,7 @@ ui <- fluidPage(
                          helpText("Method for electricity price projection"),
                          numericInput("elprice_annual_growth", "Annual Growth", 0.05, step = 0.01),
                          helpText("Annual price growth rate (decimal, e.g., 0.05 = 5%)"),
-                         numericInput("elprice_lastval", "Provided El. Price (CZK/kWh) to apply (only for Last Value with Growth)", 2.5, step = 0.1),
+                         numericInput("elprice_lastval", "Provided El. Price (CZK/kWh) to apply (only for Provided Value with Growth)", 2.5, step = 0.1),
                          helpText("Electricity price to apply the growth rate to"),
                          checkboxInput("elprice_add_intraday_variability", "Intraday Variability", TRUE),
                          helpText("Add daily price patterns"),
@@ -120,7 +122,7 @@ ui <- fluidPage(
                                                  "Historical with Growth" = "historical_w_growth" )),
                          numericInput("gridcost_annual_growth", "Annual Growth", 0.04, step = 0.01),
                          helpText("Annual grid cost growth rate (decimal, e.g., 0.04 = 4%)"),
-                         numericInput("gridcost_lastval", "Provided Grid Cost (CZK/kWh) to apply (only for Last Value with Growth)", 2.0, step = 0.1),
+                         numericInput("gridcost_lastval", "Provided Grid Cost (CZK/kWh) to apply (only for Provided Value with Growth)", 2.0, step = 0.1),
                          helpText("Grid cost to apply the growth rate to (in CZK/kWh)")
                          )
            

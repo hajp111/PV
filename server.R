@@ -13,7 +13,7 @@ server <- function(input, output, session) {
 
     # modal with instructions on app start
     showModal(modalDialog(
-        title = "Welcome to the PV evaluator",
+        title = "Welcome to the PV Analyzer",
         "Please follow these steps:",
         tags$ol(
             tags$li("Browse the tabs and set the values of parameters."),
@@ -184,7 +184,22 @@ server <- function(input, output, session) {
                 #     annual_consumption = sp$HH_annual_consumption, fixed_seed = sp$fixed_seed,
                 #     add_HH_cons_noise = sp$HH_add_cons_multiplier
                 # ))
-              df1 <- myCombineConsAndSolar(#solar
+              # getsolar <-   getSolarData(
+              #   lat = sp$lat, lon = sp$lon, start_date = sp$start_date,
+              #   system_lifetime = sp$system_lifetime, loss = sp$PV_system_loss,
+              #   angle = sp$PV_angle, aspect = sp$PV_aspect, peakpower = sp$PV_peakpower,
+              #   add_PV_noise = sp$PV_add_PV_noise, fixed_seed = sp$fixed_seed
+              # )
+              # getelcons <- get_load_data(
+              #   start_date = sp$start_date, system_lifetime = sp$system_lifetime,
+              #   annual_consumption = sp$HH_annual_consumption, fixed_seed = sp$fixed_seed,
+              #   add_HH_cons_noise = sp$HH_add_cons_multiplier
+              # )
+              # gestolar_plot <- getsolar$plot
+              # geteclons_plot <- getelcons$plot
+              
+              df1 <- myCombineConsAndSolar(
+                #solar
                 getSolarData(
                   lat = sp$lat, lon = sp$lon, start_date = sp$start_date,
                   system_lifetime = sp$system_lifetime, loss = sp$PV_system_loss,
@@ -197,6 +212,8 @@ server <- function(input, output, session) {
                   annual_consumption = sp$HH_annual_consumption, fixed_seed = sp$fixed_seed,
                   add_HH_cons_noise = sp$HH_add_cons_multiplier
                 )$elcons)
+              
+              #rm(getsolar, getelcons)
             }#endif cache
             
             gc(full = TRUE)
@@ -455,29 +472,84 @@ server <- function(input, output, session) {
     
     
     # render plots of inputs
-    # output$elconsPlot <- renderPlot({
-    #     shiny::req(elcons())
-    #     elcons()$plot
-    # })
+    output$elconsPlot <- renderPlot({
+        shiny::req( final_results()$df_hourly )
+      
+      final_results()$df_hourly %>%
+        group_by(date, year) %>% 
+        summarize(cons_kWh = sum(cons_kWh)) %>%
+        ggplot() + 
+        geom_line(aes(x=date, y = cons_kWh), alpha = 0.5) +
+        scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+        theme_minimal()
+    })
     
-    # output$solarPlot <- renderPlot({
-    #     shiny::req(solar())
-    #     solar()$plot
-    # })
+    output$solarPlot <- renderPlot({
+         shiny::req( final_results()$df_hourly )
+         
+         final_results()$df_hourly %>%
+           group_by(date, year, month, day, weekday, is_weekend) %>% 
+           summarize(P_kWh = P_kWh %>% sum(na.rm = TRUE)
+           ) %>% 
+           ggplot() +
+           geom_line(aes(x=date, y = P_kWh), alpha = 0.5) +
+           scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+           theme_minimal()
+         
+    })
     
     output$gridCostPlot <- renderPlot({
-      shiny::req(final_results())
-        #grid_cost()$plot
+      shiny::req( final_results()$df_hourly)
+      
+      
+      final_results()$df_hourly %>%
+        group_by(year) %>% 
+        summarize(grid_cost = grid_cost %>% mean(na.rm = TRUE)
+        ) %>% 
+        ggplot() +
+        geom_line(aes(x=year, y = grid_cost), alpha = 0.5) +
+        scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+        theme_minimal()
+        
+      
     })
     
     output$feedInPlot <- renderPlot({
-      shiny::req(final_results())
-        #feed_in()$plot
+      shiny::req( final_results()$df_hourly)
+      
+      final_results()$df_hourly %>%
+        group_by(year) %>% 
+        summarize(feed_in = feed_in %>% mean(na.rm = TRUE)
+        ) %>% 
+        ggplot() +
+        geom_line(aes(x=year, y = feed_in), alpha = 0.5) +
+        scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+        theme_minimal()
     })
     
     output$elpricePlot <- renderPlot({
-      shiny::req(final_results())
-        #elprice()$plot
+      shiny::req( final_results()$df_hourly)
+      
+      # final_results()$df_hourly %>%
+      #   group_by(year) %>% 
+      #   summarize(price = price %>% mean(na.rm = TRUE)
+      #             , price_q10 = price %>% quantile(0.1, na.rm = TRUE)
+      #             , price_q50 = price %>% quantile(0.5, na.rm = TRUE)
+      #             , price_q90 = price %>% quantile(0.9, na.rm = TRUE)
+      #   ) %>% 
+      #   ggplot() +
+      #   geom_line(aes(x=date, y = price), alpha = 0.7, color = "red") +
+      #   geom_line(aes(x=date, y = price_q10), alpha = 0.7, color = "grey") +
+      #   geom_line(aes(x=date, y = price_q90), alpha = 0.7, color = "grey") +
+      #   scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+      #   theme_minimal()  
+      
+      final_results()$df_hourly %>%
+        ggplot() +
+        geom_boxplot(aes( x= year %>% factor(), y = price)) +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+      
     })
     
     
@@ -487,7 +559,7 @@ server <- function(input, output, session) {
     #     print("Test switch tab")
     # })
     
-    # navigate to Results
+    # navigate to Results tab
     observe({
         print(paste("observe final_results: final_results is", ifelse(is.null(final_results()), "NULL", "calculated"))) 
         if (!is.null(final_results())) {
@@ -497,6 +569,7 @@ server <- function(input, output, session) {
     
     
     #for downloads of data:
+     #summary data
     output$download_summary <- downloadHandler(
         filename = function() {
             paste("summary_results.xlsx", sep = "")
@@ -508,7 +581,7 @@ server <- function(input, output, session) {
         }
     )
     
-    # Download Hourly Data
+    #hourly data
     output$download_hourly <- downloadHandler(
         filename = function() {
             paste("hourly_data.xlsx", sep = "")
