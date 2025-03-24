@@ -144,6 +144,8 @@ server <- function(input, output, session) {
                 elprice_method = input$elprice_method,
                 elprice_annual_growth = input$elprice_annual_growth,
                 elprice_lastval = input$elprice_lastval,
+                elprice_selected_year = input$selected_year,
+                elprice_add_random_noise = input$add_random_noise,
                 elprice_add_intraday_variability = input$elprice_add_intraday_variability,
                 elprice_add_intraweek_variability = input$elprice_add_intraweek_variability,
                 
@@ -307,6 +309,8 @@ server <- function(input, output, session) {
             elprice_method = input$elprice_method,
             elprice_annual_growth = input$elprice_annual_growth,
             elprice_lastval = input$elprice_lastval,
+            elprice_selected_year = input$selected_year,
+            elprice_add_random_noise = input$add_random_noise,
             elprice_add_intraday_variability = input$elprice_add_intraday_variability,
             elprice_add_intraweek_variability = input$elprice_add_intraweek_variability,
             
@@ -356,6 +360,8 @@ server <- function(input, output, session) {
                     , add_intraday_variability = sp$elprice_add_intraday_variability
                     , add_intraweek_variability = sp$elprice_add_intraweek_variability
                     , lastval = sp$elprice_lastval
+                    , selected_year = sp$elprice_selected_year 
+                    , add_random_noise = sp$elprice_add_random_noise
                 )
               print("elprice loaded")  
                 gc(full = TRUE)
@@ -580,7 +586,8 @@ server <- function(input, output, session) {
         content = function(file) {
           shiny::req(final_results())  
             summary_data <- final_results()$summary_vals
-            writexl::write_xlsx(list("Summary" = summary_data), path = file)
+            #writexl::write_xlsx(list("Summary" = summary_data), path = file)
+            openxlsx::write.xlsx(x = list("Summary" = summary_data), file = file)
         }
     )
     
@@ -592,7 +599,8 @@ server <- function(input, output, session) {
         content = function(file) {
           shiny::req(final_results()) 
             hourly_data <- final_results()$df_hourly
-            writexl::write_xlsx(list("Hourly Data" = hourly_data), path = file)
+            #writexl::write_xlsx(list("Hourly Data" = hourly_data), path = file)
+            openxlsx::write.xlsx(x = list("Hourly Data" = hourly_data), file = file)
         }
     )
 }

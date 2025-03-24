@@ -1,7 +1,7 @@
 required_libs <- setdiff(c("fable", "feasts",  "forecast", "ggplot2", "httr", "leaflet"
                            , "lubridate", "plotly", "purrr", "Rcpp", "readr", "scales"
                            , "shiny", "shinyjs", "shinythemes", "standardlastprofile"
-                           , "tidyverse", "tsibble", "writexl",  "readxl")
+                           , "tidyverse", "tsibble", "writexl",  "readxl", "openxlsx")
                           ,  installed.packages())
 
 install.packages(required_libs)

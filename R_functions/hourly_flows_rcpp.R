@@ -238,7 +238,7 @@ CalculateFinancials <- function(energy_flows
            , NPV_alt = (sum(energy_flows_w_prices$discounted_benefit_wo_maintenance) - params$installation_cost - sum(energy_flows_w_prices$discounted_maintenance_costs)) %>% round(0)  #should be the same as NPV
            , profitable_investment = ifelse(NPV>=0, yes = TRUE, no = FALSE)
            #
-           , total_electricity_generated = sum(energy_flows_w_prices$PV_available)
+           , total_electricity_generated = sum(energy_flows_w_prices$PV_available) %>% round(1)
            , grid_export = sum(energy_flows_w_prices$grid_export) %>% round(1)
            , grid_import = sum(energy_flows_w_prices$grid_import) %>% round(1)
            , household_el_consumption = sum(energy_flows_w_prices$cons_kWh) %>% round(1)

@@ -20,7 +20,7 @@ print("this is electricity_price.R file")
 #### define functions ####
 my_data_read_distrib_costs_observed_data <- function(filepath = "_static_data/cena_distribuce.xlsx") {
   print(paste0("Reading grid cost observations from: ", filepath))
-  distribution_costs <- readxl::read_excel(filepath, sheet = 1, range = "A7:D29") %>%
+  distribution_costs <- openxlsx::read.xlsx(filepath, sheet = 1, rows = 7:29, cols = 1:4) %>%
     rename(year = Rok, distr_costs = distribuce_prumer, service_costs = regulovane_slozky, valid_from = platnost_od) %>%
     mutate(grid_cost = distr_costs+service_costs
            , year = year %>% as.integer
@@ -47,7 +47,7 @@ prepare_elprice_observed <- function(filepath = "../_data/OTE_elektrina/OTE_data
   out1 <-lapply(what_files, function(myfile) {
     tryCatch({
 
-      sheets <- readxl::excel_sheets(myfile)
+      sheets <- openxlsx::getSheetNames(myfile)
       
       year <- basename(myfile) %>% str_extract(pattern = "trhu_([0-9]{4})") %>% str_replace("trhu_", replacement = "") %>% as.integer()
 
@@ -67,7 +67,9 @@ prepare_elprice_observed <- function(filepath = "../_data/OTE_elektrina/OTE_data
         return(NULL)
       }#endif
       
-      data <- readxl::read_excel(myfile, sheet = target_sheet, range = "A6:M10000") 
+      #data <- readxl::read_excel(myfile, sheet = target_sheet, range = "A6:M10000") 
+      data <- openxlsx::read.xlsx(myfile, sheet = target_sheet, rows = 6:10000, cols = 1:14, skipEmptyCols = FALSE, skipEmptyRows = TRUE, detectDates = TRUE)
+      
       # remove empty rows at the end ( all values in the row are NA)
       data <- data[rowSums(is.na(data)) < ncol(data), ]
       
@@ -76,8 +78,8 @@ prepare_elprice_observed <- function(filepath = "../_data/OTE_elektrina/OTE_data
       selected_data <- data[, 1:(empty_col - 1)]
     
       # only the value in col containing "Marginální cena" and "EUR/MWh"
-      target_col1 <- grep("Marginální cena.*EUR/MWh", names(selected_data))
-      target_col2 <- grep("Marginální cena.*Kč/MWh", names(selected_data))
+      target_col1 <- grep("Marginální.*EUR/MWh", names(selected_data))
+      target_col2 <- grep("Marginální.*Kč/MWh", names(selected_data))
       target_col3 <- grep("Kurz", names(selected_data))
       
       if (length(target_col1) == 0) {
@@ -125,11 +127,11 @@ prepare_elprice_observed <- function(filepath = "../_data/OTE_elektrina/OTE_data
            , x_utc_addhours_gmt = with_tz(x_utc_addhours, tzone = "Etc/GMT-1")
            )
   #final_result %>% select(date, hour, hour_local, datetime_CET , datetime_GMT) %>% filter(date == "2015-03-29") %>% View()
-  writexl::write_xlsx(x = final_result, path = save_to_path)
+  openxlsx::write.xlsx(x = final_result, file = save_to_path)
  print(paste0("file written to: ", save_to_path ))
 }#endfunction prepare_elprice_observed_dataset
 
-#wholesale prices!
+#wholesale prices! use multiply_wholesale_by multiplier
 my_data_read_elprice_observed_data <- function(multiply_wholesale_by = 1.2 #wholesale prices -> actual prices usually higher (profit margin)
                                                , filepath = "_static_data/elprices_Czechia.xlsx"
                                                #, filepath_fx = "_static_data/ECB_Data_Portal_long_20250207083750.xlsx"
@@ -137,7 +139,7 @@ my_data_read_elprice_observed_data <- function(multiply_wholesale_by = 1.2 #whol
   # read el prices for CZ from eurostat
   print(paste0("Reading el. price observations from: ", filepath))
   
-  elprice_czk_raw <- readxl::read_excel(filepath) %>%
+  elprice_czk_raw <- openxlsx::read.xlsx(filepath) %>%
     mutate(
       date = lubridate::ymd(date)
       , hour = hour %>% as.integer()
@@ -362,17 +364,18 @@ my_elprice <- function(df
                           , years = 20
                           , annual_growth = 0.04
                           , startdate = '2025-01-01'
-                          , method = "linear" # "static", "linear", "last_w_growth", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw", "reuse_year"
+                          , method = "linear" # "static", "linear", "last_w_growth", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw", "selected_year" 
                           , fixed_seed = TRUE
                           , theta = 0.05
                           , add_intraday_variability = TRUE
                           , add_intraweek_variability = TRUE
                           , lastval
-                          , recycle_year = 2024
+                          , selected_year = 2023
+                          , add_random_noise = 0  # multiplier of the original used to add some noise to the price values (0.2 means some value from 0.8*price to 1.2*price)
 ) {
   print(paste0("My el. price started"))
   #check for method
-  if (!method %in% c("static", "linear", "last_w_growth", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw")) {stop("Unknown method for el. price calculation")}#endif
+  if (!method %in% c("static", "linear", "last_w_growth", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw", "selected_year" )) {stop("Unknown method for el. price calculation")}#endif
   
   startdate <- my_check_date(startdate)
   startyear <- substring(startdate, 1,4) %>% as.integer()  #start_date %>% lubridate::floor_date(start_date %>% lubridate::ymd())
@@ -384,6 +387,10 @@ my_elprice <- function(df
   
   if (missing(lastval)) {
     lastval <- last_price
+  }#
+  
+  if (missing(selected_year)) {
+    selected_year <- 2023
   }#
   
   startdate_orig <- startdate
@@ -558,14 +565,41 @@ my_elprice <- function(df
         mutate(
           price_method = accumulate(innovations, ~ .x + theta * (mu - .x) + .y, .init = lastval)[-1]
         )
+    } else if (method %in% c("selected_year")) {
+     
+      # Check if base_year exists in data
+      if ( !(selected_year %in% (df$year %>% unique() ))) {
+        stop(paste("Stopping: selected year", selected_year, "not found in data"))
+      }#
+      
+      base_data <- df %>% filter(year == selected_year) %>% select(-datetime, -year, -date)
+      
+      if (nrow(base_data) < 365*24 ) {
+        warning("Selected year has incomplete underlying data, switching to 2023")
+        selected_year <- 2023
+        base_data <- df %>% filter(year == selected_year) %>% select(-datetime, -year, -date)
+      }#
+      
+      future_prices_step2 <- future_prices_step0 %>% left_join(base_data, by = c("month" = "month"
+                                                                                 , "day" = "day"
+                                                                                 , "hour" = "hour")) %>%
+        #fill Feb 29 in leap years with data from previous day
+          mutate(price = ifelse(is.na(price), yes = lag(price, 24), no = price)) %>%
+        rename(price_method = price)
+      
+      
     } else {
       stop("Unknown method, my_elprice() is stopping")
     }
   }#end for trend methods
   
-  # Generate future prices
+  # Generate future prices, add random noise if desired
+  future_prices <- future_prices_step2 %>%
+      mutate(noise_range = runif(n(), 1 - add_random_noise, 1 + add_random_noise)
+             , price_method = price_method * noise_range
+            ) %>%
+    select(-noise_range)
   
-  future_prices <- future_prices_step2
   if (add_intraday_variability) {
     future_prices <- future_prices %>%
       left_join(decomposed_agg, by = c("hour" = "hour", "month" = "month", "weekday" = "weekday") ) %>%
@@ -604,7 +638,7 @@ my_elprice <- function(df
   }#end add_intraweek_variability
   
   # variability already included in "linear" method, so if/else here to avoid adding the intraday/intraweek components twice
-  if (method %in% c("linear")) {
+  if (method %in% c("linear", "selected_year")) {
     future_prices <- future_prices %>%
       mutate(# noise_multiplier1 = sample(c(-1, 1), size = n(), replace = TRUE)
         price = price_method)  

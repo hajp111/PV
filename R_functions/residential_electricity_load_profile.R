@@ -46,9 +46,9 @@ H0_hourly <- H0 %>% mutate(
 ) %>% group_by(profile_id, date, day_of_year, year, quarter, period, month, day, hour, weekday, is_weekend) %>% 
   summarize(cons_kWh = sum(watts/4) / 1000) %>% 
   ungroup() %>%
-  mutate(datetime = make_datetime( year = year, month = month, day = day, hour = hour, tz = "Etc/GMT-1")
-         , noise_range =  add_HH_cons_noise * cons_kWh
-         , cons_kWh = pmax(0, cons_kWh + runif(n(), -noise_range, noise_range))
+  mutate(datetime = make_datetime(year = year, month = month, day = day, hour = hour, tz = "Etc/GMT-1")
+         , noise_range = runif(n(), 1 - add_HH_cons_noise, 1 + add_HH_cons_noise)
+         , cons_kWh = pmax(0, cons_kWh * noise_range)
   ) %>%
   select(-noise_range)
 
