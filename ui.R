@@ -105,7 +105,7 @@ ui <- fluidPage(
                          numericInput("add_random_noise", "Add Random Noise to Data", 0.00, step = 0.05, min = 0, max = 1),
                          helpText("Adds random variation to el. price (0.2 means ±20% variation)"),
                          selectInput("selected_year", "Repeat Year from Observations",
-                                     choices = c(2008:2023)),
+                                     choices = c(2016:2023)),
                          numericInput("elprice_lastval", "Provided El. Price (CZK/kWh) to apply (only for Provided Value with Growth)", 3.5, step = 0.1),
                          helpText("Electricity price to apply the growth rate to"),
                          checkboxInput("elprice_add_intraday_variability", "Intraday Variability", TRUE),

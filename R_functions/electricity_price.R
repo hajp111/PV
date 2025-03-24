@@ -38,11 +38,12 @@ prepare_elprice_observed <- function(filepath = "../_data/OTE_elektrina/OTE_data
                               , save_to_path = "_static_data/elprices_Czechia.xlsx") {
   print("this is prepare_elprice_observed()") 
   what_files <- list.files(filepath, pattern = "\\.xls[x]?$", full.names = TRUE)
-  #if files from 2015 onwards are causing problems opening in R, open the files in Excel and re-save them
+  #if OTE Excel files are causing problems opening in R, open the files in Excel and re-save them as xlsx
   # data for 2024 only up to 2024-11-30 -> filter for dates below
-  # filter out 2025
+  # filter out 2025 (because 2024 incomplete) 
   what_files <- what_files[!grepl("2025", what_files)]
-  
+  # filter out 2014 and below, to reduce shinyapps.io resource consumption
+  what_files <- what_files[as.numeric(str_extract(basename(what_files), "\\d{4}")) >= 2016]
   
   out1 <-lapply(what_files, function(myfile) {
     tryCatch({
@@ -167,7 +168,7 @@ my_data_read_elprice_observed_data <- function(multiply_wholesale_by = 1.2 #whol
     glimpse(duplicates)
     }
   #rm(elprice_cz, fxrate)
-
+  print("Reading el. price observations done")
   return(elprice_czk)
 }#endfunction my_data_read_elprice_observed_data 
 
@@ -480,7 +481,7 @@ my_elprice <- function(df
               , season_week_950 = quantile(season_168, probs = 0.95, na.rm = TRUE)
     )
   
-  
+  print("decomposed done")
   mean_trend <- decomposed %>% as_tibble() %>% ungroup() %>% summarise(mean_trend = mean(trend, na.rm = TRUE)
                                                                        , sd_trend = sd(trend, na.rm = TRUE))
   
@@ -498,13 +499,14 @@ my_elprice <- function(df
       , is_weekend = weekday %in% c(6,7)
     )
   
+  print("future_prices_step0 done")
 
-  
   if (method %in% c("static")) {
     mu <- mean(df$price, na.rm = TRUE)
     
     future_prices_step2 <- future_prices_step0 %>% mutate(price_method = mu)
-    
+    print("future_prices_step2 - static done")
+    rm(future_prices_step0)
   } else if (method %in% c("linear")) {
     
     tslm_model <- df %>% as_tsibble(index = datetime) %>%
@@ -515,6 +517,8 @@ my_elprice <- function(df
     future_prices_step2 <- tslm_model %>% forecast(new_data = future_prices_step0 %>% as_tsibble(index = datetime)) %>%  #new_data has to be tsibble!
       rename(price_method = .mean) %>%
       select(-`.model`, -`price`)
+    print("future_prices_step2 - time series model done")
+    rm(future_prices_step0)
     #future_prices_step2 %>% head(150) %>% ggplot(aes(x=datetime, y = price_method)) + geom_line()
     
   } else if (method %in% c("last_w_growth")) { 
@@ -522,6 +526,7 @@ my_elprice <- function(df
     future_prices_step2 <- future_prices_step0 %>%
       mutate(price_method = lastval * exp(annual_growth * as.numeric(difftime(datetime, max(df$datetime)
                                                                                    , units = "days") / 365)))
+    print("future_prices_step2 - last_w_growth done")
   } else if (method %in% c("historical_w_growth")) { 
     #apply just historical trend (without seasonality)
     future_prices_step2 <- future_prices_step0 %>%
@@ -531,7 +536,31 @@ my_elprice <- function(df
         price_method = mean_trend ) %>% 
       mutate(price_method = price_method * exp(annual_growth * as.numeric(difftime(datetime, max(df$datetime)
                                                                                    , units = "days") / 365)))
+    print("future_prices_step2 - historical_w_growth done")
+    rm(future_prices_step0)
+  } else if (method %in% c("selected_year")) {
     
+    # check if base_year exists in data
+    if ( !(selected_year %in% (df$year %>% unique() ))) {
+      stop(paste("Stopping: selected year", selected_year, "not found in data"))
+    }#
+    
+    base_data <- df %>% filter(year == selected_year) %>% select(-datetime, -year, -date)
+    
+    if (nrow(base_data) < 365*24 ) {
+      warning("Selected year has incomplete underlying data, switching to 2023")
+      selected_year <- 2023
+      base_data <- df %>% filter(year == selected_year) %>% select(-datetime, -year, -date)
+    }#
+    
+    future_prices_step2 <- future_prices_step0 %>% left_join(base_data, by = c("month" = "month"
+                                                                               , "day" = "day"
+                                                                               , "hour" = "hour")) %>%
+      #fill Feb 29 in leap years with data from previous day
+      mutate(price = ifelse(is.na(price), yes = lag(price, 24), no = price)) %>%
+      rename(price_method = price)
+    print("future_prices_step2 - selected_year done")
+    rm(future_prices_step0)
   } else if (method %in% c("random_walk", "random_walk_trend", "mean_reverting_rw")) {
     
     # Compute historical mean price
@@ -546,60 +575,45 @@ my_elprice <- function(df
       ) %>%
       #drop unneeded cols
       select(-(mean_price:quantile_975))
-    
+     print("future_prices_step1 - rand walk done")
+     rm(future_prices_step0)
     if (method %in% c("random_walk")) {
       future_prices_step2 <- future_prices_step1 %>% 
         mutate(
           price_method =  lastval + cumsum(innovation) 
         )
-      
+      print("future_prices_step2 - rand walk done")
+      rm(future_prices_step1)
     } else if (method %in% c("random_walk_trend")) {
       drift_per_hour <- (annual_growth * lastval) / (365 * 24)
       future_prices_step2 <- future_prices_step1 %>% 
         mutate(
           price_method =  lastval + cumsum(drift_per_hour + innovation) 
         )
+      print("future_prices_step2 - rand walk done")
+      rm(future_prices_step1)
     } else if (method %in% c("mean_reverting_rw")) {
       innovations <- future_prices_step1$innovation
       future_prices_step2 <- future_prices_step1 %>%
         mutate(
           price_method = accumulate(innovations, ~ .x + theta * (mu - .x) + .y, .init = lastval)[-1]
         )
-    } else if (method %in% c("selected_year")) {
-     
-      # Check if base_year exists in data
-      if ( !(selected_year %in% (df$year %>% unique() ))) {
-        stop(paste("Stopping: selected year", selected_year, "not found in data"))
-      }#
-      
-      base_data <- df %>% filter(year == selected_year) %>% select(-datetime, -year, -date)
-      
-      if (nrow(base_data) < 365*24 ) {
-        warning("Selected year has incomplete underlying data, switching to 2023")
-        selected_year <- 2023
-        base_data <- df %>% filter(year == selected_year) %>% select(-datetime, -year, -date)
-      }#
-      
-      future_prices_step2 <- future_prices_step0 %>% left_join(base_data, by = c("month" = "month"
-                                                                                 , "day" = "day"
-                                                                                 , "hour" = "hour")) %>%
-        #fill Feb 29 in leap years with data from previous day
-          mutate(price = ifelse(is.na(price), yes = lag(price, 24), no = price)) %>%
-        rename(price_method = price)
-      
-      
+      print("future_prices_step2 - rand walk done")
+      rm(future_prices_step1)
     } else {
       stop("Unknown method, my_elprice() is stopping")
     }
   }#end for trend methods
-  
+  gc(full = TRUE)
   # Generate future prices, add random noise if desired
   future_prices <- future_prices_step2 %>%
       mutate(noise_range = runif(n(), 1 - add_random_noise, 1 + add_random_noise)
              , price_method = price_method * noise_range
             ) %>%
     select(-noise_range)
-  
+  rm(future_prices_step2)
+  gc(full = TRUE)
+  print("future_prices - before adding variability done")
   if (add_intraday_variability) {
     future_prices <- future_prices %>%
       left_join(decomposed_agg, by = c("hour" = "hour", "month" = "month", "weekday" = "weekday") ) %>%
