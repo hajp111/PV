@@ -32,41 +32,138 @@ my_data_read_distrib_costs_observed_data <- function(filepath = "_static_data/ce
   return(distribution_costs)
 }#endfunction my_data_read_distrib_costs_observed_data
 
-#wholesale prices ! 
+
+prepare_elprice_observed <- function(filepath = "../_data/OTE_elektrina/OTE_data/"
+                              #, filepath_fx = "_static_data/ECB_Data_Portal_long_20250207083750.xlsx"
+                              , save_to_path = "_static_data/elprices_Czechia.xlsx") {
+  print("this is prepare_elprice_observed()") 
+  what_files <- list.files(filepath, pattern = "\\.xls[x]?$", full.names = TRUE)
+  #if files from 2015 onwards are causing problems opening in R, open the files in Excel and re-save them
+  # data for 2024 only up to 2024-11-30 -> filter for dates below
+  # filter out 2025
+  what_files <- what_files[!grepl("2025", what_files)]
+  
+  
+  out1 <-lapply(what_files, function(myfile) {
+    tryCatch({
+
+      sheets <- readxl::excel_sheets(myfile)
+      
+      year <- basename(myfile) %>% str_extract(pattern = "trhu_([0-9]{4})") %>% str_replace("trhu_", replacement = "") %>% as.integer()
+
+      #what sheet
+      if (year == 2008) {
+        target_sheet <- sheets[grep("DT \\(Kč\\)", sheets)]
+      } else if (year == 2009) {
+        target_sheet <- sheets[grep("DT ČR \\(EUR\\)", sheets)]
+      } else {
+        target_sheet <- sheets[grep("DT ČR$", sheets)] # $ ensures exact match at the end
+      }#endif
+      
+      #target_sheet <- sheets[grep("DT", sheets)]
+    
+      if (length(target_sheet) == 0) {
+        warning(paste("Cannot determine 'DT' sheet in: ", myfile))
+        return(NULL)
+      }#endif
+      
+      data <- readxl::read_excel(myfile, sheet = target_sheet, range = "A6:M10000") 
+      # remove empty rows at the end ( all values in the row are NA)
+      data <- data[rowSums(is.na(data)) < ncol(data), ]
+      
+      #only the first table
+      empty_col <- which(apply(data, 2, function(x) all(is.na(x))))[1]
+      selected_data <- data[, 1:(empty_col - 1)]
+    
+      # only the value in col containing "Marginální cena" and "EUR/MWh"
+      target_col1 <- grep("Marginální cena.*EUR/MWh", names(selected_data))
+      target_col2 <- grep("Marginální cena.*Kč/MWh", names(selected_data))
+      target_col3 <- grep("Kurz", names(selected_data))
+      
+      if (length(target_col1) == 0) {
+        warning(paste("Target col+ not found in: ", myfile))
+        return(NULL)
+      }
+      
+      result <- selected_data[, c(1,2, target_col1,target_col2,target_col3)]
+      first_date <- selected_data[1,1][[1]]
+      if (first_date %>% is.character() == TRUE) {
+        if (first_date %>% str_detect(".")) {
+          parse_as_text <- TRUE    #format like 31.12.2009
+        } else { parse_as_text <- FALSE}
+      } else {
+        parse_as_text <- FALSE
+      }
+      
+      names(result) <- c("date", "hour", "price_EUR_MWh", "price_CZK_MWh", "FX_CZK_EUR")
+      if (parse_as_text) {
+        result <- result %>% mutate( date = date %>% lubridate::dmy() %>% format("%Y-%m-%d")
+                                     #, datetime = as.POSIXct(paste0(date, " ", hour), format = "%Y-%m-%d %H", tz = "Etc/GMT-1") 
+        )
+      } else {
+
+        result <- result %>% mutate( date = date %>% format("%Y-%m-%d")
+        #, datetime = as.POSIXct(paste0(date, " ", hour), format = "%Y-%m-%d %H", tz = "Etc/GMT-1") 
+                  )
+      }#endif
+      
+    
+      return(result)
+    }, error = function(e) {
+      warning(paste("Error processing: ", myfile, ":", e))
+      return(NULL)
+    })
+  
+    })#end lapply
+  
+  final_result <- bind_rows(out1) %>%
+    #filter(date == "2015-03-29" | date == "2015-03-30" | date == "2015-10-25" | date == "2015-10-26" ) %>%
+    mutate(hour = hour - 1   # OTE uses hours 1-24, but I use 0-23, but anyway, OTE has consecutive hours observed
+           , x_prague =  as.POSIXct(paste0(date, " ", 0), format = "%Y-%m-%d %H", tz = "Europe/Prague") 
+           , x_utc =  with_tz(x_prague, tzone = "UTC")
+           , x_utc_addhours = x_utc + lubridate::hours(hour)
+           , x_utc_addhours_gmt = with_tz(x_utc_addhours, tzone = "Etc/GMT-1")
+           )
+  #final_result %>% select(date, hour, hour_local, datetime_CET , datetime_GMT) %>% filter(date == "2015-03-29") %>% View()
+  writexl::write_xlsx(x = final_result, path = save_to_path)
+ print(paste0("file written to: ", save_to_path ))
+}#endfunction prepare_elprice_observed_dataset
+
+#wholesale prices!
 my_data_read_elprice_observed_data <- function(multiply_wholesale_by = 1.2 #wholesale prices -> actual prices usually higher (profit margin)
-                                               , filepath = "_static_data/Czechia.csv"
-                                               , filepath_fx = "_static_data/ECB_Data_Portal_long_20250207083750.xlsx") {
+                                               , filepath = "_static_data/elprices_Czechia.xlsx"
+                                               #, filepath_fx = "_static_data/ECB_Data_Portal_long_20250207083750.xlsx"
+                                               ) {
   # read el prices for CZ from eurostat
   print(paste0("Reading el. price observations from: ", filepath))
-  elprice_cz <- readr::read_csv(file = filepath, show_col_types = FALSE) %>%
+  
+  elprice_czk_raw <- readxl::read_excel(filepath) %>%
     mutate(
-      # for datetime, use fixed timezone (no summer time, because with summer time, I get 2 observations for same hour or a missing obs.):
-      # "Etc/GMT-1" time zone offset is UTC/GMT +1 hours
-      datetime_fixed = with_tz(`Datetime (UTC)`, tzone = "Etc/GMT-1")
-      , date = as.Date(datetime_fixed)
-      , hour = format(as.POSIXct(datetime_fixed), format = "%H") %>% as.integer()
-      , year = year(date)
-      , month = month(date)
-      , day = day(date)
-      , weekday = wday(date, week_start = 1)
+      date = lubridate::ymd(date)
+      , hour = hour %>% as.integer()
+      # for datetime, use fixed timezone (no summer time, because with summer time, I would get 2 observations for same hour or a missing obs.):
+      # "Etc/GMT-1" time zone offset is UTC/GMT +1 hours (like CET but without NAs for when the summer/winter time changes)
+      , x_prague =  as.POSIXct(paste0(date, " ", 0), format = "%Y-%m-%d %H", tz = "Europe/Prague") 
+      , x_utc =  with_tz(x_prague, tzone = "UTC")
+      , x_utc_addhours = x_utc + lubridate::hours(hour)
+      , datetime = with_tz(x_utc_addhours, tzone = "Etc/GMT-1")
+      , year = year(date) %>% as.integer()
+      , month = month(date) %>% as.integer()
+      , day = day(date) %>% as.integer()
+      , weekday = wday(date, week_start = 1) %>% as.integer()
     )
+  elprice_czk <- elprice_czk_raw %>% 
+    mutate(price_CZK_kWh = price_CZK_MWh / 10^3
+           , price = price_CZK_kWh * multiply_wholesale_by) %>%
+    select(datetime, date, year, month, day, hour, price)
   
-  # read EURxCZK fx rate
-  fxrate <- readxl::read_excel(filepath_fx
-                               , sheet = 2) %>% mutate(date = as.Date(DATE)
-                                                       , EURCZK = OBS.VALUE) %>%
-    fill(EURCZK, .direction = c("down"))
-  
-  # convert EUR to CZK prices
-  elprice_czk <- elprice_cz %>% left_join(fxrate %>% select(date, EURCZK), by = "date") %>%
-    mutate(price_CZK_kWh = `Price (EUR/MWhe)`* EURCZK / 10^3
-           , price_CZK_kWh_retail = price_CZK_kWh * multiply_wholesale_by) %>%
-    rename(datetime = datetime_fixed) %>%
-    select(datetime, date, year, month, day, hour, price_CZK_kWh_retail) %>%
-    rename(price = price_CZK_kWh_retail)
-  
+ 
   # check duplicates
-  if ( elprice_czk %>% count(datetime) %>% filter(n > 1) %>% nrow() >1) {warning("Duplicated values found!")}
+  if ( elprice_czk %>% count(date, hour) %>% filter(n > 1) %>% nrow() >1) {
+    warning("Duplicated values found!")
+    duplicates <- elprice_czk %>% group_by(date, hour) %>% mutate(n=n()) %>% filter(n>1) %>% ungroup()
+    glimpse(duplicates)
+    }
   #rm(elprice_cz, fxrate)
 
   return(elprice_czk)
@@ -265,12 +362,13 @@ my_elprice <- function(df
                           , years = 20
                           , annual_growth = 0.04
                           , startdate = '2025-01-01'
-                          , method = "linear" # "static", "linear", "last_w_growth", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw"
+                          , method = "linear" # "static", "linear", "last_w_growth", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw", "reuse_year"
                           , fixed_seed = TRUE
                           , theta = 0.05
                           , add_intraday_variability = TRUE
                           , add_intraweek_variability = TRUE
                           , lastval
+                          , recycle_year = 2024
 ) {
   print(paste0("My el. price started"))
   #check for method
@@ -312,7 +410,7 @@ my_elprice <- function(df
   # SLT decomposition
   decomposed <- df %>% as_tsibble(index = datetime) %>% 
     #filter(datetime<'2024-01-01') %>%
-    model(STL(price ~ season(period = "day") + season(period = 168) #+ season(period = "year")
+    model(STL(price ~ trend() + season(period = "day") + season(period = 168) #+ season(period = "year")
     )) %>%  #season is "day" because pattern repeats daily
     components() %>% 
     mutate( month = month(datetime) %>% as.integer()
@@ -404,7 +502,7 @@ my_elprice <- function(df
     
     tslm_model <- df %>% as_tsibble(index = datetime) %>%
       model(
-        ts_fit = TSLM(price ~ trend() + season())
+        ts_fit = TSLM(price ~ trend()  + season(period = "day") + season(period = 168))
       )
     
     future_prices_step2 <- tslm_model %>% forecast(new_data = future_prices_step0 %>% as_tsibble(index = datetime)) %>%  #new_data has to be tsibble!
@@ -437,7 +535,7 @@ my_elprice <- function(df
       left_join(avg_actual_price, by = c("month" = "month", "day" = "day", "hour" = "hour") ) %>%
       mutate(
         #note: the random walk step (innovation) is kept as an extra column for random walk methods
-        innovation = rnorm(n(), mean = 0, sd = sd_price * 0.1),  # sd_price scaled down to avoid large fluctuations
+        innovation = rnorm(n(), mean = 0, sd = sd_price * 0.5),  # sd_price scaled down to avoid large fluctuations
       ) %>%
       #drop unneeded cols
       select(-(mean_price:quantile_975))
@@ -445,23 +543,23 @@ my_elprice <- function(df
     if (method %in% c("random_walk")) {
       future_prices_step2 <- future_prices_step1 %>% 
         mutate(
-          price_method =  last_price + cumsum(innovation) 
+          price_method =  lastval + cumsum(innovation) 
         )
       
     } else if (method %in% c("random_walk_trend")) {
-      drift_per_hour <- (annual_growth * last_price) / (365 * 24)
+      drift_per_hour <- (annual_growth * lastval) / (365 * 24)
       future_prices_step2 <- future_prices_step1 %>% 
         mutate(
-          price_method =  last_price + cumsum(drift_per_hour + innovation) 
+          price_method =  lastval + cumsum(drift_per_hour + innovation) 
         )
     } else if (method %in% c("mean_reverting_rw")) {
       innovations <- future_prices_step1$innovation
       future_prices_step2 <- future_prices_step1 %>%
         mutate(
-          price_method = accumulate(innovations, ~ .x + theta * (mu - .x) + .y, .init = last_price)[-1]
+          price_method = accumulate(innovations, ~ .x + theta * (mu - .x) + .y, .init = lastval)[-1]
         )
     } else {
-      stop("Unknown method, stopping.")
+      stop("Unknown method, my_elprice() is stopping")
     }
   }#end for trend methods
   
@@ -526,7 +624,10 @@ my_elprice <- function(df
   
   plt_boxplot_per_year <- future_prices %>% ggplot(aes(x=factor(year), y = price)) + geom_boxplot()+
     theme_minimal() +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    labs(x = "Year",
+         y = "Price"
+         )
   
   
   # this is too slow to run:
@@ -586,70 +687,5 @@ my_elprice <- function(df
 }#endfunction my_elprice
 
 
-# # using Meta's prophet algorithm 
-# my_elprice_2 <- function(df
-#                           , years = 20
-#                           , startdate = '2025-01-01' %>% as.Date() %>% with_tz(`Datetime (UTC)`, tzone = "Etc/GMT-1") 
-#                           , method = "prophet"
-#                           , fixed_seed = TRUE
-#                           , changepoint_prior = 0.05
-#                           , seasonality_mode = "multiplicative"
-#                           , interval_width = 0.8
-#                           , custom_seasonality = TRUE
-# ) {
-#   if (fixed_seed) {set.seed(123)}
-#   
-#   if (!all(c("datetime", "price") %in% names(df))) {
-#     stop("Input dataframe probably wrong, expected 'datetime' and 'price' columns")
-#   }
-#   
-#   last_price < mean(tail(df$price, 24), na.rm = TRUE)
-#   #last_price <- tail(df$price, 1)
-#   future_timestamps <- seq( startdate, by = "1 hour", length.out = years * 8760)
-#   future_prices_step0 <- tibble(datetime = future_timestamps) %>%
-#     mutate(year = year(datetime)
-#            , month = month(datetime)
-#            , day = day(datetime)
-#            , hour = hour(datetime)
-#            , weekday = wday(datetime, week_start = 1))
-#   
-#   if (method == "prophet") {
-#     df_prophet <- df %>%
-#       rename(ds = datetime, y = price) %>%  #required names by prophet package
-#       select(ds, y)
-#     
-#     model <- prophet(
-#       changepoint.prior.scale = changepoint_prior,
-#       seasonality.mode = seasonality_mode,
-#       interval.width = interval_width
-#     )
-#     
-#     # add custom seasonality?
-#     if (custom_seasonality) {
-#       model <- add_seasonality(
-#         model, 
-#         name = "daily", 
-#         period = 24, 
-#         fourier.order = 10
-#       ) %>% 
-#         #add_seasonality(name = "yearly", period = 365.25, fourier.order = 10) %>%
-#         add_seasonality(name = "weekly", period = 24*7, fourier.order = 10)
-#     }#end custom seasonality
-#     
-#     model <- fit.prophet(model, df_prophet)
-#     
-#     future_df <- tibble(ds = future_timestamps)
-#     forecast <- predict(model, future_df) # %>% select(ds, yhat)
-#     
-#     future_prices <- future_prices_step0 %>%
-#       left_join(forecast, by = c("datetime" = "ds")) %>%
-#       rename(price = yhat)
-#     
-#   } else {
-#     stop("Unknown method, stopping.")
-#   }
-#   
-#   return(future_prices)
-# }#endfunction my_forecast_2
 
 

@@ -52,7 +52,7 @@ ui <- fluidPage(
                          helpText("Value between 0 and 1. When charging with E kWh, stored energy is E × efficiency"),
                          numericInput("battery_discharge_efficiency", "Discharge Efficiency", 0.95, min = 0, max = 1, step = 0.01),
                          helpText("Value between 0 and 1. When discharging E kWh, released energy is E × efficiency"),
-                         numericInput("battery_initial_soc", "Initial SOC (%)", 50, min = 0, max = 100, step = 1),
+                         numericInput("battery_initial_soc", "Initial SOC (%)", 20, min = 0, max = 100, step = 1),
                          helpText("Initial state of charge as percentage of battery capacity"),
                          numericInput("battery_min_soc", "Min SOC (%)", 10, min = 0, max = 100, step = 1),
                          helpText("Minimum state of charge to avoid battery damage"),

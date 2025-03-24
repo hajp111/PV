@@ -11,7 +11,11 @@ plot_charts <- FALSE
 # read electricity prices from file
 
 print("about to read elprice_czk within electricity_price_use.R file")
-elprice_czk <- my_data_read_elprice_observed_data()
+if (file.exists("_static_data/elprices_Czechia.xlsx") == FALSE) {
+  prepare_elprice_observed()
+}#
+
+elprice_czk <- my_data_read_elprice_observed_data(multiply_wholesale_by = 1.2)
 
 # read distribution_costs - actual observation data - from file
 distribution_costs <- my_data_read_distrib_costs_observed_data()
@@ -71,7 +75,7 @@ feed_in$plot
 saveRDS(feed_in, file = "_cache/feed_in_price.Rds")
 
 # static forecast
-elprice <- my_elprice(df = my_data_read_elprice_observed_data(multiply_wholesale_by = 1.1)
+elprice <- my_elprice(df = my_data_read_elprice_observed_data(multiply_wholesale_by = 1.2)
                          , startdate = '2022-01-01'
                          , years = 2
                          , annual_growth = 0.04

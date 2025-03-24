@@ -548,7 +548,10 @@ server <- function(input, output, session) {
         ggplot() +
         geom_boxplot(aes( x= year %>% factor(), y = price)) +
         theme_minimal() +
-        theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+        theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+        labs(x = "Year",
+             y = "Price"
+        )
       
     })
     

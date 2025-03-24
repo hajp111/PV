@@ -15,7 +15,7 @@ getSolarData <- function(lat =  49.278
                            , system_lifetime = 20
                            #, startyear = 2022
                            #, endyear = 2023
-                           , loss = 14  # in percent
+                           , loss = 14  # in percent, recommended value -> see https://pvwatts.nrel.gov/pvwatts.php for a breakdown and estimation of "reasonable value"
                            , angle = 30 # Inclination angle (0° = horizontal)
                            , aspect = 0  # Azimuth angle (0° = South, 90° = West)
                            , peakpower = 1 # in kWp
