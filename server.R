@@ -1,6 +1,6 @@
 ####  server.R
 library(shinyjs)
-gcinfo(TRUE)
+#gcinfo(TRUE)
 
 server <- function(input, output, session) {
     print("hiding calculate_financials button")
@@ -434,7 +434,7 @@ server <- function(input, output, session) {
                                                               # , household_el_consumption 
                                                               # , elcons_saved
                                                               # , feed_in_revenue_nominal
-                                                               # for LOCE calculation
+                                                               # for LCOE calculation
                                                               # , installation_cost
                                                               # , Present_Value_maintenance_costs
                                                                , Present_Value_total_cost
@@ -619,33 +619,35 @@ server <- function(input, output, session) {
     #summary data
     output$download_summary <- downloadHandler(
         filename = function() {
-            paste("summary_results.xlsx", sep = "")
+            paste("summary_results.csv", sep = "")
         },
         content = function(file) {
           shiny::req(final_results())  
             summary_data <- final_results()$summary_vals
             #writexl::write_xlsx(list("Summary" = summary_data), path = file)
-            openxlsx::write.xlsx(x = list("Summary" = summary_data), file = file)
+            #openxlsx::write.xlsx(x = list("Summary" = summary_data), file = file)
+            readr::write_csv(summary_data, file = file)
         }
     )
     
     #hourly data
     output$download_hourly <- downloadHandler(
         filename = function() {
-            paste("hourly_data.xlsx", sep = "")
+            paste("hourly_data.csv", sep = "")
         },
         content = function(file) {
           shiny::req(final_results()) 
             hourly_data <- final_results()$df_hourly
             #writexl::write_xlsx(list("Hourly Data" = hourly_data), path = file)
-            openxlsx::write.xlsx(x = list("Hourly Data" = hourly_data), file = file)
+            #openxlsx::write.xlsx(x = list("Hourly Data" = hourly_data), file = file)
+            readr::write_csv(hourly_data, file = file)
         }
     )
     
     #params data
     output$download_params <- downloadHandler(
       filename = function() {
-        paste("input_params.xlsx", sep = "")
+        paste("input_params.csv", sep = "")
       },
       content = function(file) {
         shiny::req(system_params()) 
@@ -654,7 +656,8 @@ server <- function(input, output, session) {
           value = unlist(system_params()) # unlist to ensure all values are in a single vector
         )
         #writexl::write_xlsx(list("Hourly Data" = hourly_data), path = file)
-        openxlsx::write.xlsx(x = list("Input Parameters" = par), file = file)
+        #openxlsx::write.xlsx(x = list("Input Parameters" = par), file = file)
+        readr::write_csv(par, file = file)
       }
     )
 }

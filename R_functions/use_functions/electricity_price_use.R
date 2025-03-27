@@ -36,7 +36,7 @@ if (plot_charts) {
     theme_minimal() +
     theme(legend.position = "none")  # Remove the legend
   
-  my_ggsave("gfx/elprice/00_grid_cost_by_year.png")
+  my_ggsave("../grafy_atp/elprice/00_grid_cost_by_year.png")
 }
 
 # generate dataset for distribution/grid costs - based on observed data - in hourly frequency
@@ -185,7 +185,7 @@ if (plot_charts) {
     theme_minimal() +
     theme(legend.position = "none")  # Remove the legend
   
-  my_ggsave("gfx/elprice/01_price_actual_hourly_pattern_by_year.png")
+  my_ggsave("../grafy_atp//elprice/01_price_actual_hourly_pattern_by_year.png")
   
   # plot the standard deviation of the daily pattern - higher volatility
   ggplot(intraday_distribution_actualprice, aes(x = hour, y = sd_price, color = as.factor(year_))) +
@@ -207,7 +207,7 @@ if (plot_charts) {
     ) +
     theme_minimal() +
     theme(legend.position = "none")  # Remove the legend
-  my_ggsave("gfx/elprice/02_price_actual_stdev_hourly_pattern_by_year.png")
+  my_ggsave("../grafy_atp//elprice/02_price_actual_stdev_hourly_pattern_by_year.png")
   
   # plot average and empirical quantiles
   intraday_distribution_avg_actualprice %>% ggplot(aes(x = hour, y = mean_price)) +
@@ -222,7 +222,7 @@ if (plot_charts) {
     geom_hline(yintercept = 0) +
     theme_minimal() +
     theme(legend.position = "none") 
-  my_ggsave("gfx/elprice/03_price_actual_mean_and_quantiles_hourly_pattern.png")
+  my_ggsave("../grafy_atp//elprice/03_price_actual_mean_and_quantiles_hourly_pattern.png")
   
   # timeseries chart of price over time
   daily_median_actualprice <- elprice_czk %>% group_by(date) %>% 
@@ -255,7 +255,7 @@ if (plot_charts) {
     geom_hline(yintercept = 0) +
     theme_minimal() +
     theme(legend.position = "none") 
-  my_ggsave("gfx/elprice/04_price_actual_timeseries_hourly_mean_rollmean_loess.png")
+  my_ggsave("../grafy_atp//elprice/04_price_actual_timeseries_hourly_mean_rollmean_loess.png")
   
   # facet by year 
   daily_median_actualprice %>% #filter(date>='2017-01-01' & date<'2021-01-01') %>% 
@@ -286,7 +286,7 @@ if (plot_charts) {
     geom_hline(yintercept = 0, color = "black") +
     theme_minimal() +
     theme(legend.position = "none") 
-  my_ggsave("gfx/elprice/04_price_actual_timeseries_daily_by_year_facet.png", height = 200)
+  my_ggsave("../grafy_atp//elprice/04_price_actual_timeseries_daily_by_year_facet.png", height = 200)
   
   # price and distr. costs
   daily_median_actualprice %>% left_join(distribution_costs, by = "year") %>%
@@ -305,7 +305,7 @@ if (plot_charts) {
     geom_hline(yintercept = 0) +
     theme_minimal() +
     theme(legend.position = "none") 
-  my_ggsave("gfx/elprice/04_price_actual_timeseries_and_distr_costs.png")
+  my_ggsave("../grafy_atp//elprice/04_price_actual_timeseries_and_distr_costs.png")
 }# shows mean and sd in individual years
 
 
@@ -396,7 +396,7 @@ if (plot_charts) {
     theme_minimal() +
     scale_x_continuous(breaks = pretty_breaks()) +
     theme(legend.position = "none")  # Remove the legend
-  my_ggsave("gfx/elprice/05_price_seasonal_hour_hourly_pattern_by_year.png")
+  my_ggsave("../grafy_atp//elprice/05_price_seasonal_hour_hourly_pattern_by_year.png")
   
   
   # plot the standard deviation of the daily pattern - higher volatility
@@ -420,7 +420,7 @@ if (plot_charts) {
     ) +
     theme_minimal() +
     theme(legend.position = "none")  # Remove the legend
-  my_ggsave("gfx/elprice/06_price_stdev_seasonal_hour_hourly_pattern_by_year.png")
+  my_ggsave("../grafy_atp//elprice/06_price_stdev_seasonal_hour_hourly_pattern_by_year.png")
   
   # plot average and empirical quantiles for intraday seasonal component
   intraday_distribution_avg %>% ggplot(aes(x = hour, y = mean_price)) +
@@ -436,7 +436,7 @@ if (plot_charts) {
     theme_minimal() +
     theme(legend.position = "none")
   
-  my_ggsave("gfx/elprice/07_price_seasonal_mean_and_quantiles_hourly_pattern_by_year.png")
+  my_ggsave("../grafy_atp//elprice/07_price_seasonal_mean_and_quantiles_hourly_pattern_by_year.png")
   
   
 }#end plot seasonal components 
@@ -537,10 +537,10 @@ if (plot_charts & FALSE) {
 
 if (plot_charts) {
   timetk::plot_stl_diagnostics(elprice_czk, .date_var = datetime, .value = price)
-  my_ggsave("gfx/elprice/08_price_seasonal_slt_diagnostics.png")
+  my_ggsave("../grafy_atp//elprice/08_price_seasonal_slt_diagnostics.png")
   
   timetk::plot_seasonal_diagnostics(elprice_czk, .date_var = datetime, .value = price)
-  my_ggsave("gfx/elprice/09_price_seasonal_diagnostics.png", height = 200)
+  my_ggsave("../grafy_atp//elprice/09_price_seasonal_diagnostics.png", height = 200)
 }
 
 #### define training vs testing split ####

@@ -43,18 +43,18 @@ DataFrame calculate_year_energy(DataFrame year_data, List params, double initial
   for (int i = 0; i < n; ++i) {
     battery_available_charge_capacity[i] = battery_max_capacity[i] - battery_current_soc; 
     double max_discharge_possible = battery_current_soc - battery_min_capacity[i];
-    
+    //battery discharge behavior
     battery_discharge_raw[i] = std::min(deficit[i] / battery_discharge_efficiency, max_discharge_possible);
     battery_discharge_loss[i] = battery_discharge_raw[i] * (1 - battery_discharge_efficiency);
     battery_discharge[i] = battery_discharge_raw[i] * battery_discharge_efficiency;
     grid_import[i] = std::max(0.0, deficit[i] - battery_discharge[i]);
-    
-    battery_charge_raw[i] = std::min(excess_solar[i] / battery_charge_efficiency, battery_available_charge_capacity[i]); 
+    //battery charge behavior
+    battery_charge_raw[i] = std::min(excess_solar[i], battery_available_charge_capacity[i] / battery_charge_efficiency); 
     battery_charge_loss[i] = battery_charge_raw[i] * (1 - battery_charge_efficiency);
     battery_charge[i] = battery_charge_raw[i] * battery_charge_efficiency;
     grid_export[i] = std::max(0.0, excess_solar[i] - battery_charge[i]);
-    
-    battery_current_soc = std::max(battery_min_capacity[i], std::min(battery_max_capacity[i], battery_current_soc + battery_charge[i] - battery_discharge[i]));
+    // battery SoC behavior
+    battery_current_soc = std::max(battery_min_capacity[i], std::min(battery_max_capacity[i], battery_current_soc + battery_charge[i] - battery_discharge_raw[i]));
     battery_soc[i] = battery_current_soc;
     battery_soc_change[i] = (i > 0) ? battery_soc[i] - battery_soc[i - 1] : 0.0;
   }

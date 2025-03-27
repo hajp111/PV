@@ -173,9 +173,9 @@ ui <- fluidPage(
                          dateInput("plot_date", "Select Date", value = Sys.Date()),
                          plotlyOutput("energy_plot"),
                          helpText("Plot shows energy flows and battery state for the selected date"),
-                         downloadButton("download_summary", "Download Summary (Excel)", class = "btn btn-primary"),
-                         downloadButton("download_hourly", "Download Hourly Data (Excel)", class = "btn btn-success"),
-                         downloadButton("download_params", "Download Input Parameters (Excel)", class = "btn btn-success")
+                         downloadButton("download_summary", "Download Summary (CSV)", class = "btn btn-primary"),
+                         downloadButton("download_hourly", "Download Hourly Data (CSV)", class = "btn btn-success"),
+                         downloadButton("download_params", "Download Input Parameters (CSV)", class = "btn btn-success")
                 )
          
             )
