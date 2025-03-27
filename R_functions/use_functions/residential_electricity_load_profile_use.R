@@ -15,12 +15,20 @@ standardlastprofile::slp_info("H0")
 # the load profile is defined so that annual consumption is 1000 kWh -> multiply load profile by expected annual consumption
 
 
-elcons <- get_load_data(start_date = "2022-01-01"
-              , system_lifetime = 2
+elcons <- get_load_data(start_date = "2025-01-01"
+              , system_lifetime = 20
               , annual_consumption =3
               , fixed_seed = TRUE 
               , add_HH_cons_noise = 0 
 )
+elcons$elcons %>% filter(year == max(year)) %>%
+  group_by(date, year) %>% 
+  summarize(cons_kWh = sum(cons_kWh)) %>%
+  ggplot() + 
+  geom_line(aes(x=date, y = cons_kWh), alpha = 0.5) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+  theme_minimal()
+
 #save(elcons, file = "_cache/elcons_data.Rdata")
 saveRDS(elcons, file = "_cache/elcons_data.Rds")
 

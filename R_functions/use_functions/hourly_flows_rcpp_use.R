@@ -12,8 +12,7 @@ system_params <- list(
   , battery_min_soc = 0.1      # to avoid battery damage, do not discharge below battery_min_soc (0.1 = 10% of max battery capacity)
   , battery_max_soc = 1.0      # cannot charge over full capacity, maybe I want to charge to lower than max capacity (longer battery life)  (1.0 = 100% of max battery capacity)
   , battery_degradation = 0.01 # rate of degradation of battery (lower capacity) per year
-  , PV_degradation = 0.01      # rate of degradation of PV panels per year
-  , PV_system_own_consumption = 0.030 # constant consumption of the PV system installation to power inverter etc, in kWh per hour
+  #
   # financial params
   , installation_cost = 200000 # in CZK
   , discount_rate = 0.03       # 3% discount rate
@@ -23,6 +22,8 @@ system_params <- list(
   , system_lifetime = 20       # in years
   #, end_date = ((start_date %>% as.Date()) + lubridate::years(system_params$system_lifetime) ) %>% lubridate::ceiling_date(unit = "year")
   # PV installation parameters
+  , PV_degradation = 0.01      # rate of degradation of PV panels per year
+  , PV_system_own_consumption = 0.030 # constant consumption of the PV system installation to power inverter etc, in kWh per hour
   , lat =  49.278          # Latitude  
   , lon = 16.998           # Longitude
   , PV_system_loss = 14    # in percent
@@ -38,10 +39,13 @@ system_params <- list(
   , HH_annual_consumption = 3         # in MWh annually
   , HH_add_cons_multiplier = 0.0      # multiplier of the original used to add some noise to the cons_kWh values (0.2 means some value from 0.8cons_kWh to 1.2cons_kWh)
   # electricity price parameters
-  , elprice_method = "historical_w_growth"    # methods are  "static", "linear", "historical", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw"
+  , elprice_method = "historical_w_growth"    # methods are  "static", "linear", "historical", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw", "selected_year"
   , elprice_annual_growth = 0.05              # annual growth of price, e.g. 0.005 , if method like "last_w_growth" is used
   , elprice_add_intraday_variability = TRUE   # add intraday seasonality pattern
   , elprice_add_intraweek_variability = TRUE  # add intraweek (weekday) seasonality pattern
+  , elprice_selected_year = 2023      # only used for "selected_year" method
+  , elprice_add_random_noise = 0      # multiplier of the original used to add some noise (0.2 means some value from 0.8*value to 1.2*value)
+  , elprice_lastval = 3.5             # in CZK/kWh
   # feed-in tariff parameters
   , feedin_method = "last_w_growth"   # only method is "last_w_growth" 
   , feedin_lastval = 1.1              #last value of feed-in tarrif in CZK per kWh 
@@ -49,6 +53,7 @@ system_params <- list(
   # gridcost parameters
   , gridcost_method = "last_w_growth" # methods are "static", "linear", "last_w_growth"
   , gridcost_annual_growth = 0.04     # annual growth of grid cost
+  , gridcost_lastval = 2.0            # in CZK/kWh
 )
 
 #### load initial data for load and production ####
@@ -125,7 +130,7 @@ elprice_data %>% glimpse()
                           , add_HH_cons_noise = system_params$HH_add_cons_multiplier )
   #elcons %>% glimpse()
   elcons_data <- elcons$elcons
-  print(paste0("elcons nrow: ", nrow(elcons_data)))
+  print(paste0("elcons nrow: ", nrow(elcons_data), " ", min(elcons_data$datetime), " - ", max(elcons_data$datetime)))
   
   #get grid distribution costs 
   # datetime, date, year, month, day, weekday, hour, grid_cost
@@ -134,10 +139,11 @@ elprice_data %>% glimpse()
                            , years = system_params$system_lifetime
                            , annual_growth = system_params$gridcost_annual_growth #
                            , method = system_params$gridcost_method
+                           , lastval = system_params$gridcost_lastval
   )
   grid_cost_data <- grid_cost$grid_cost #hourly data only
   #grid_cost_data %>% glimpse()
-  print(paste0("grid_cost_data nrow: ", nrow(grid_cost_data)))
+  print(paste0("grid_cost_data nrow: ", nrow(grid_cost_data), " ", min(grid_cost_data$datetime), " - ", max(grid_cost_data$datetime)))
   
   #get feedin prices (replace with function call)
   # datetime, date, year, month, day, weekday, hour, feedin
@@ -150,7 +156,7 @@ elprice_data %>% glimpse()
   )
   feed_in_data <- feed_in$feed_in
   #feed_in_data %>% glimpse()
-  print(paste0("feed_in_data nrow: ", nrow(feed_in_data)))
+  print(paste0("feed_in_data nrow: ", nrow(feed_in_data), " ", min(feed_in_data$datetime), " - ", max(feed_in_data$datetime)))
   
   #get electricty prices (replace with function call)
   # datetime, date, year, month, day, weekday, hour, price
@@ -161,10 +167,13 @@ elprice_data %>% glimpse()
                         , method = system_params$elprice_method 
                         , add_intraday_variability = system_params$elprice_add_intraday_variability 
                         , add_intraweek_variability = system_params$elprice_add_intraweek_variability 
+                        , lastval = system_params$elprice_lastval
+                        , selected_year = system_params$elprice_selected_year
+                        , add_random_noise = system_params$elprice_add_random_noise
                         ) 
   elprice_data <- elprice$price_data
   #elprice_data %>% glimpse()
-  print(paste0("elprice nrow: ", nrow(elprice_data)))
+  print(paste0("elprice nrow: ", nrow(elprice_data), " ", min(elprice_data$datetime), " - ", max(elprice_data$datetime)))
 
 }#endif use_cache_data
 

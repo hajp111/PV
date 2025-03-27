@@ -1,10 +1,9 @@
 ####  server.R
 library(shinyjs)
+gcinfo(TRUE)
 
 server <- function(input, output, session) {
-    
     print("hiding calculate_financials button")
-  
   
     shinyjs::hide("calculate_financials")
     # hide the results tabs 
@@ -56,7 +55,6 @@ server <- function(input, output, session) {
             addTiles() %>%
             setView(lng = 16.998, lat = 49.278, zoom = 8)
     })
-   
     
     #set marker in map
     observeEvent(input$map_click, {
@@ -73,7 +71,6 @@ server <- function(input, output, session) {
         }
       }
     })
-    
 
     # first button - Load Energy Data
     observeEvent(input$load_data, {
@@ -338,7 +335,8 @@ server <- function(input, output, session) {
                 grid_cost <- my_gridcost(
                     my_data_read_distrib_costs_observed_data()
                     , startdate = sp$start_date,
-                    , years = sp$system_lifetime, annual_growth = sp$gridcost_annual_growth
+                    , years = sp$system_lifetime
+                    , annual_growth = sp$gridcost_annual_growth
                     , method = sp$gridcost_method
                     , lastval = sp$gridcost_lastval
                 )
@@ -453,7 +451,7 @@ server <- function(input, output, session) {
      pivot_longer(cols = everything(), names_to = "variable", values_to = "value")
     })#end renderTable summary_table
     
-    # Render interactive plot
+    # interactive plot for daily overview:
     output$energy_plot <- renderPlotly({
       shiny::req(final_results(), input$plot_date)
         
@@ -464,16 +462,56 @@ server <- function(input, output, session) {
             shiny::need(nrow(df) > 0, "No data available for selected date")
         )
         
-        p <- plotDay(input$plot_date, df, system_params())  
-        ggplotly(p) %>%
-            layout(
-                hovermode = "x unified",
-                yaxis2 = list(
-                    overlaying = "y",
-                    side = "right",
-                    title = "Battery SoC (kWh)"
-                )
-            )
+        colors <- list(
+          "PV Available" = "orange",
+          "Total Demand" = "red",
+          "Grid Import" = "black",
+          "Grid Export" = "darkgreen",
+          "Battery SoC" = "blue"
+        )
+        
+        ply <- plot_ly(df, x = ~hour) %>%
+          # primariy axis
+          add_trace(y = ~PV_available, name = "PV Available", type = "scatter", mode = "lines",
+                    line = list(color = colors[["PV Available"]])) %>%
+          add_trace(y = ~total_demand, name = "Total Demand", type = "scatter", mode = "lines",
+                    line = list(color = colors[["Total Demand"]])) %>%
+          add_trace(y = ~grid_import, name = "Grid Import", type = "scatter", mode = "lines",
+                    line = list(color = colors[["Grid Import"]])) %>%
+          add_trace(y = ~grid_export, name = "Grid Export", type = "scatter", mode = "lines",
+                    line = list(color = colors[["Grid Export"]])) %>%
+          # secondary axis (for battery SoC)
+          add_trace(y = ~battery_soc, name = "Battery SoC", type = "scatter", mode = "lines",
+                    line = list(color = colors[["Battery SoC"]], dash = "dot"),
+                    yaxis = "y2") %>%
+          #labs
+          layout(
+            title = list(text = "Energy Flow (Hourly)", font = list(size = 12)),
+            xaxis = list(title = "Hour", tickmode = "linear", dtick = 1), 
+            yaxis = list(title = "Energy (kWh)"
+                         , side = "left", showgrid = TRUE
+                         , titlefont = list(size = 10),
+                         tickfont = list(size = 8)),
+            yaxis2 = list(
+              title = "Battery SoC (kWh)",
+              side = "right",
+              overlaying = "y",
+              range = c(0, system_params()$battery_capacity_kwh), 
+              titlefont = list(size = 10),
+              tickfont = list(size = 8),
+              showgrid = FALSE
+            ),
+            legend = list(
+              # transparent background
+              bgcolor = "rgba(0,0,0,0)",  
+              font = list(size = 11),  
+              orientation = "h",  
+              x = 0.5, y = -0.15, xanchor = "center"
+            ),
+            hovermode = "x unified"
+          )
+        
+        return(ply)
     })#end renderPlotly 
     
     
@@ -577,8 +615,8 @@ server <- function(input, output, session) {
     })
     
     
-    #for downloads of data:
-     #summary data
+    #buttons for downloads of data:
+    #summary data
     output$download_summary <- downloadHandler(
         filename = function() {
             paste("summary_results.xlsx", sep = "")
@@ -602,5 +640,21 @@ server <- function(input, output, session) {
             #writexl::write_xlsx(list("Hourly Data" = hourly_data), path = file)
             openxlsx::write.xlsx(x = list("Hourly Data" = hourly_data), file = file)
         }
+    )
+    
+    #params data
+    output$download_params <- downloadHandler(
+      filename = function() {
+        paste("input_params.xlsx", sep = "")
+      },
+      content = function(file) {
+        shiny::req(system_params()) 
+        par <- tibble(
+          key = names(system_params()),
+          value = unlist(system_params()) # unlist to ensure all values are in a single vector
+        )
+        #writexl::write_xlsx(list("Hourly Data" = hourly_data), path = file)
+        openxlsx::write.xlsx(x = list("Input Parameters" = par), file = file)
+      }
     )
 }

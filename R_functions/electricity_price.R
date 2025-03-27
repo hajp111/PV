@@ -35,7 +35,7 @@ my_data_read_distrib_costs_observed_data <- function(filepath = "_static_data/ce
 
 prepare_elprice_observed <- function(filepath = "../_data/OTE_elektrina/OTE_data/"
                               #, filepath_fx = "_static_data/ECB_Data_Portal_long_20250207083750.xlsx"
-                              , save_to_path = "_static_data/elprices_Czechia.xlsx") {
+                              , save_to_path = "_static_data/elprices_Czechia.Rds") {
   print("this is prepare_elprice_observed()") 
   what_files <- list.files(filepath, pattern = "\\.xls[x]?$", full.names = TRUE)
   #if OTE Excel files are causing problems opening in R, open the files in Excel and re-save them as xlsx
@@ -128,19 +128,21 @@ prepare_elprice_observed <- function(filepath = "../_data/OTE_elektrina/OTE_data
            , x_utc_addhours_gmt = with_tz(x_utc_addhours, tzone = "Etc/GMT-1")
            )
   #final_result %>% select(date, hour, hour_local, datetime_CET , datetime_GMT) %>% filter(date == "2015-03-29") %>% View()
-  openxlsx::write.xlsx(x = final_result, file = save_to_path)
+  #openxlsx::write.xlsx(x = final_result, file = save_to_path)
+  
+  saveRDS(final_result, file = save_to_path )
  print(paste0("file written to: ", save_to_path ))
 }#endfunction prepare_elprice_observed_dataset
 
 #wholesale prices! use multiply_wholesale_by multiplier
-my_data_read_elprice_observed_data <- function(multiply_wholesale_by = 1.2 #wholesale prices -> actual prices usually higher (profit margin)
-                                               , filepath = "_static_data/elprices_Czechia.xlsx"
+my_data_read_elprice_observed_data <- function(multiply_wholesale_by = 1.0 #wholesale prices -> retail prices usually higher (profit margin), but spot prices for HH usually based on wholesale anyway
+                                               , filepath = "_static_data/elprices_Czechia.Rds"
                                                #, filepath_fx = "_static_data/ECB_Data_Portal_long_20250207083750.xlsx"
                                                ) {
   # read el prices for CZ from eurostat
   print(paste0("Reading el. price observations from: ", filepath))
   
-  elprice_czk_raw <- openxlsx::read.xlsx(filepath) %>%
+  elprice_czk_raw <- readRDS(filepath) %>%
     mutate(
       date = lubridate::ymd(date)
       , hour = hour %>% as.integer()
@@ -227,7 +229,7 @@ my_gridcost <- function(df = my_data_read_distrib_costs_observed_data()
   
   
   # create future timestamps of hourly vals - use left join to apply the forecast for hourly values
-  future_timestamps <- seq( startdate, by = "1 hour", length.out = years * 8760)
+  future_timestamps <- seq( startdate, by = "1 hour", length.out = years * 24*365.25 %>% round(0) -1)
   # create df for future (like new_data)
   future_prices_step0 <- tibble(datetime = future_timestamps) %>%
     mutate(
@@ -328,7 +330,7 @@ my_feed_in <- function( years = 20
 
   
   # create future timestamps of hourly vals - use left join to apply the forecast for hourly values
-  future_timestamps <- seq( startdate, by = "1 hour", length.out = years * 8760)
+  future_timestamps <- seq( startdate, by = "1 hour", length.out = years * 24*365.25 %>% round(0) -1)
   # create df for future (like new_data)
   future_prices_step0 <- tibble(datetime = future_timestamps) %>%
     mutate(
@@ -416,6 +418,8 @@ my_elprice <- function(df
     )
   
   # SLT decomposition
+  if (add_intraday_variability || add_intraweek_variability || method == "historical_w_growth") { 
+    
   decomposed <- df %>% as_tsibble(index = datetime) %>% 
     #filter(datetime<'2024-01-01') %>%
     model(STL(price ~ trend() + season(period = "day") + season(period = 168) #+ season(period = "year")
@@ -482,11 +486,13 @@ my_elprice <- function(df
     )
   
   print("decomposed done")
+  }#end decomposing
+  
   mean_trend <- decomposed %>% as_tibble() %>% ungroup() %>% summarise(mean_trend = mean(trend, na.rm = TRUE)
                                                                        , sd_trend = sd(trend, na.rm = TRUE))
   
   # create future timestamps
-  future_timestamps <- seq( startdate, by = "1 hour", length.out = years * 8760)
+  future_timestamps <- seq( startdate, by = "1 hour", length.out = years * 24*365.25 %>% round(0) -1)
   # create df for future (like new_data)
   future_prices_step0 <- tibble(datetime = future_timestamps) %>%
     mutate(

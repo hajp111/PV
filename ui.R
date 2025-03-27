@@ -91,23 +91,38 @@ ui <- fluidPage(
                 
                 , tabPanel("Electricity Prices", value = "elpriceTab",
                          selectInput("elprice_method", "Price Method",
-                                     choices = c("Static" = "static", 
-                                                 "Time Series Model" = "linear", 
-                                                 "Provided Value with Growth" = "last_w_growth",
-                                                 "Historical with Growth" = "historical_w_growth",
-                                                 "Random Walk" = "random_walk", 
-                                                 "Random Walk with Trend" = "random_walk_trend", 
-                                                 "Mean Reverting Random Walk" = "mean_reverting_rw",
-                                                 "Repeat Selected Year" = "selected_year")),
+                                     choices = c("Provided Value with Growth" = "last_w_growth"
+                                                 , "Historical with Growth" = "historical_w_growth"
+                                                 , "Static" = "static"
+                                                 , "Time Series Model" = "linear"
+                                                 , "Random Walk" = "random_walk"
+                                                 , "Random Walk with Trend" = "random_walk_trend"
+                                                 , "Mean Reverting Random Walk" = "mean_reverting_rw"
+                                                 , "Repeat Selected Year" = "selected_year")),
                          helpText("Method for electricity price projection"),
-                         numericInput("elprice_annual_growth", "Annual Growth", 0.05, step = 0.01),
-                         helpText("Annual price growth rate (decimal, e.g., 0.05 = 5%)"),
+                         # numericInput("elprice_annual_growth", "Annual Growth", 0.05, step = 0.01),
+                         # helpText("Annual price growth rate (decimal, e.g., 0.05 = 5%)"),
                          numericInput("add_random_noise", "Add Random Noise to Data", 0.00, step = 0.05, min = 0, max = 1),
                          helpText("Adds random variation to el. price (0.2 means ±20% variation)"),
-                         selectInput("selected_year", "Repeat Year from Observations",
-                                     choices = c(2016:2023)),
-                         numericInput("elprice_lastval", "Provided El. Price (CZK/kWh) to apply (only for Provided Value with Growth)", 3.5, step = 0.1),
-                         helpText("Electricity price to apply the growth rate to"),
+                         #selectInput("selected_year", "Repeat Year from Observations", choices = c(2016:2023)),
+                         #numericInput("elprice_lastval", "Provided El. Price (CZK/kWh) to apply (only for Provided Value with Growth)", 3.5, step = 0.1),
+                         #helpText("Electricity price to apply the growth rate to"),
+                         
+                         conditionalPanel(
+                             condition = "input.elprice_method == 'last_w_growth'",
+                             numericInput("elprice_lastval", "Provided El. Price (CZK/kWh) to apply", 3.5, step = 0.1),
+                             helpText("Electricity price to apply the growth rate to")
+                         ),
+                         conditionalPanel(
+                             condition = "input.elprice_method == 'selected_year'",
+                             selectInput("selected_year", "Repeat Year from Observations", choices = c(2016:2023))
+                         ),
+                         conditionalPanel(
+                             condition = "['last_w_growth', 'historical_w_growth', 'random_walk_trend'].includes(input.elprice_method)",
+                             numericInput("elprice_annual_growth", "Annual Growth", 0.05, step = 0.01),
+                             helpText("Annual price growth rate (decimal, e.g., 0.05 = 5%)")
+                         ),
+                         
                          checkboxInput("elprice_add_intraday_variability", "Intraday Variability", TRUE),
                          helpText("Add daily price patterns"),
                          checkboxInput("elprice_add_intraweek_variability", "Intraweek Variability", TRUE),
@@ -121,14 +136,27 @@ ui <- fluidPage(
                 
                 , tabPanel("Grid Costs", value = "gridcostTab",
                          selectInput("gridcost_method", "Method", 
-                                     choices = c("Static" = "static", 
-                                                 "Linear" = "linear",
-                                                 "Provided Value with Growth" = "last_w_growth",
-                                                 "Historical with Growth" = "historical_w_growth" )),
-                         numericInput("gridcost_annual_growth", "Annual Growth", 0.04, step = 0.01),
-                         helpText("Annual grid cost growth rate (decimal, e.g., 0.04 = 4%)"),
-                         numericInput("gridcost_lastval", "Provided Grid Cost (CZK/kWh) to apply (only for Provided Value with Growth)", 2.0, step = 0.1),
-                         helpText("Grid cost to apply the growth rate to (in CZK/kWh)")
+                                     choices = c("Provided Value with Growth" = "last_w_growth"
+                                                 , "Static" = "static"
+                                                 , "Time Series Model" = "linear"
+                                                 , "Historical with Growth" = "historical_w_growth" )),
+                         #numericInput("gridcost_annual_growth", "Annual Growth", 0.04, step = 0.01),
+                         #helpText("Annual grid cost growth rate (decimal, e.g., 0.04 = 4%)"),
+                         #numericInput("gridcost_lastval", "Provided Grid Cost (CZK/kWh) to apply (only for Provided Value with Growth)", 2.0, step = 0.1),
+                         #helpText("Grid cost to apply the growth rate to (in CZK/kWh)")
+                         
+                         conditionalPanel(
+                             condition = "input.gridcost_method == 'last_w_growth'",
+                             numericInput("gridcost_lastval", "Provided Grid Cost (CZK/kWh) to apply as initial observation", 2.0, step = 0.1),
+                             helpText("Grid cost to apply the growth rate to (in CZK/kWh)")
+                         ),
+                         
+                         conditionalPanel(
+                             condition = "['last_w_growth', 'historical_w_growth'].includes(input.gridcost_method)",
+                             numericInput("gridcost_annual_growth", "Annual Growth", 0.04, step = 0.01),
+                             helpText("Annual grid cost growth rate (decimal, e.g., 0.04 = 4%)"),
+                         )
+                         
                          )
            
                 , tabPanel("Observe Input Data Charts", value = "chartsTab",
@@ -146,7 +174,8 @@ ui <- fluidPage(
                          plotlyOutput("energy_plot"),
                          helpText("Plot shows energy flows and battery state for the selected date"),
                          downloadButton("download_summary", "Download Summary (Excel)", class = "btn btn-primary"),
-                         downloadButton("download_hourly", "Download Hourly Data (Excel)", class = "btn btn-success")
+                         downloadButton("download_hourly", "Download Hourly Data (Excel)", class = "btn btn-success"),
+                         downloadButton("download_params", "Download Input Parameters (Excel)", class = "btn btn-success")
                 )
          
             )

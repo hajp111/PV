@@ -48,7 +48,9 @@ grid_cost <- my_gridcost(df = my_data_read_distrib_costs_observed_data()
                          , annual_growth = 0 #0.005
                          , method = "last_w_growth" # "last_w_growth"
                          , orig_data_where_available = TRUE
-)
+                         , lastval = 2.0
+                        )
+
 # grid_cost <- my_gridcost(df = distribution_costs
 #                              , startdate = '2022-01-01'
 #                              , years = 30
@@ -81,7 +83,11 @@ elprice <- my_elprice(df = my_data_read_elprice_observed_data(multiply_wholesale
                          , annual_growth = 0.04
                          , method ="static"
                          , add_intraday_variability = FALSE
-                         , add_intraweek_variability = FALSE) 
+                         , add_intraweek_variability = FALSE
+                      , lastval = 3.5
+                      , selected_year = 2023
+                      , add_random_noise = 0) 
+
 #save(elprice , file = "_cache/elprice_static.Rdata")
 saveRDS(elprice, file = "_cache/elprice.Rds" )
 
