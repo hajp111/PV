@@ -9,7 +9,7 @@ get_load_data <- function(start_date = "2022-01-01"
                           , system_lifetime = 20
                           , annual_consumption = 3 # in MWh
                           , fixed_seed = FALSE 
-                          , add_HH_cons_noise = 0 # multiplier of the original used to add some noise to the P values (0.2 means some value from 0.8P to 1.2P)
+                          , add_HH_cons_noise = 0.8 # multiplier of the original used to add some noise to the P values (0.2 means some value from 0.8P to 1.2P)
                           ) {
 
 if (fixed_seed) {set.seed(123)}
@@ -47,8 +47,8 @@ H0_hourly <- H0 %>% mutate(
   summarize(cons_kWh = sum(watts/4) / 1000) %>% 
   ungroup() %>%
   mutate(datetime = make_datetime(year = year, month = month, day = day, hour = hour, tz = "Etc/GMT-1")
-         , noise_range = runif(n(), 1 - add_HH_cons_noise, 1 + add_HH_cons_noise)
-         , cons_kWh = pmax(0, cons_kWh * noise_range)
+         , noise_range = cons_kWh *add_HH_cons_noise
+         , cons_kWh = pmax(0, cons_kWh + runif(n(), -noise_range, noise_range) )
   ) %>%
   select(-noise_range)
 

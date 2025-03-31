@@ -86,7 +86,7 @@ ui <- fluidPage(
                 
                 , tabPanel("Household", value = "householdTab",
                          numericInput("HH_annual_consumption", "Annual Consumption (MWh)", 3, min = 0),
-                         numericInput("HH_add_cons_noise", "Consumption Noise Multiplier", 0.8, min = 0),
+                         numericInput("HH_add_cons_noise", "Consumption Noise Multiplier", 0.8, min = 0, step = 0.1),
                          helpText("Adds random variation to consumption (0.2 means ±20% variation)"))
                 
                 , tabPanel("Electricity Prices", value = "elpriceTab",

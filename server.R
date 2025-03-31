@@ -152,7 +152,7 @@ server <- function(input, output, session) {
                 
                 # Household consumption
                 HH_annual_consumption = input$HH_annual_consumption,
-                HH_add_cons_multiplier = input$HH_add_cons_multiplier,
+                HH_add_cons_multiplier = input$HH_add_cons_noise,
                 
                 # Electricity price parameters
                 elprice_method = input$elprice_method,
@@ -175,7 +175,9 @@ server <- function(input, output, session) {
             )
             
             system_params(sp)
+            glimpse(sp)
             print("sys params loaded")
+            
             
             showModal(modalDialog("Loading solar and energy consumption data...", footer = NULL))
             #removeModal()
@@ -200,7 +202,7 @@ server <- function(input, output, session) {
                   , system_lifetime = sp$system_lifetime
                   , annual_consumption = sp$HH_annual_consumption
                   , fixed_seed = sp$fixed_seed
-                  , add_HH_cons_noise = sp$HH_add_cons_noise
+                  , add_HH_cons_noise = sp$HH_add_cons_multiplier
                 )$elcons
                 )
               
@@ -289,7 +291,7 @@ server <- function(input, output, session) {
             
             # Household consumption
             HH_annual_consumption = input$HH_annual_consumption,
-            HH_add_cons_multiplier = input$HH_add_cons_multiplier,
+            HH_add_cons_multiplier = input$HH_add_cons_noise,
             
             # Electricity price parameters
             elprice_method = input$elprice_method,
