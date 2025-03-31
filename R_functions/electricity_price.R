@@ -299,6 +299,9 @@ my_gridcost <- function(df = my_data_read_distrib_costs_observed_data()
     geom_line(data = df, aes(x=year, y = grid_cost), alpha = 0.5) +
     geom_line(data = future_prices_step2, aes(x=year, y = grid_cost_fcast), alpha = 0.5, color = "red") +
     scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+    labs(title = "Grid cost expectation"
+        , x = "Year"
+        , y = "CZK / kWh") +
     theme_minimal()
   if (method %in% c("linear")) {
     
@@ -346,7 +349,8 @@ my_feed_in <- function( years = 20
   
  if (method %in% c("last_w_growth")) {
 
-    future_prices_step2 <- future_years %>% mutate(feed_in = lastval * (1 + annual_growth)^(0:(years-1)) )
+    future_prices_step2 <- future_years %>% mutate(feed_in = lastval * (1 + annual_growth)^(0:(years-1)) 
+                                                   , feed_in = ifelse(feed_in <0, yes = 0, no = feed_in ))
   }
   
 
@@ -357,6 +361,9 @@ my_feed_in <- function( years = 20
   plt <- ggplot() + 
     geom_line(data = future_prices_step2, aes(x=year, y = feed_in), alpha = 0.5, color = "red") +
     scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+    labs(title = "Expected feed-in tariff"
+         , x = "Year"
+         , y = "CZK / kWh") +
     theme_minimal()
   
   output <- list(plot = plt, feed_in = future_prices)

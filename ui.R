@@ -29,7 +29,7 @@ ui <- fluidPage(
             actionButton("reset_app", "Reset App"),
             
             
-            checkboxInput("use_cache_data", "Use Cached Data", value = FALSE),
+            #checkboxInput("use_cache_data", "Use Cached Data", value = FALSE),
             checkboxInput("fixed_seed", "Fixed Seed", value = TRUE),
             
             h4("Location"),
@@ -86,7 +86,7 @@ ui <- fluidPage(
                 
                 , tabPanel("Household", value = "householdTab",
                          numericInput("HH_annual_consumption", "Annual Consumption (MWh)", 3, min = 0),
-                         numericInput("HH_add_cons_multiplier", "Consumption Noise Multiplier", 0.0, min = 0),
+                         numericInput("HH_add_cons_noise", "Consumption Noise Multiplier", 0.8, min = 0),
                          helpText("Adds random variation to consumption (0.2 means ±20% variation)"))
                 
                 , tabPanel("Electricity Prices", value = "elpriceTab",
@@ -115,7 +115,7 @@ ui <- fluidPage(
                          ),
                          conditionalPanel(
                              condition = "input.elprice_method == 'selected_year'",
-                             selectInput("selected_year", "Repeat Year from Observations", choices = c(2016:2023))
+                             selectInput("selected_year", "Repeat Year from Observations", choices = c(2016:2023), selected = 2023)
                          ),
                          conditionalPanel(
                              condition = "['last_w_growth', 'historical_w_growth', 'random_walk_trend'].includes(input.elprice_method)",
@@ -147,13 +147,13 @@ ui <- fluidPage(
                          
                          conditionalPanel(
                              condition = "input.gridcost_method == 'last_w_growth'",
-                             numericInput("gridcost_lastval", "Provided Grid Cost (CZK/kWh) to apply as initial observation", 2.0, step = 0.1),
+                             numericInput("gridcost_lastval", "Provided Grid Cost (CZK/kWh) to apply as initial observation", 2.8, step = 0.1),
                              helpText("Grid cost to apply the growth rate to (in CZK/kWh)")
                          ),
                          
                          conditionalPanel(
                              condition = "['last_w_growth', 'historical_w_growth'].includes(input.gridcost_method)",
-                             numericInput("gridcost_annual_growth", "Annual Growth", 0.04, step = 0.01),
+                             numericInput("gridcost_annual_growth", "Annual Growth", 0.02, step = 0.01),
                              helpText("Annual grid cost growth rate (decimal, e.g., 0.04 = 4%)"),
                          )
                          

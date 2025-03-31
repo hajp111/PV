@@ -72,6 +72,22 @@ server <- function(input, output, session) {
       }
     })
 
+    
+    # replace grid_cost last value with 0 if negative
+    observeEvent(input$gridcost_lastval, {
+      if (input$gridcost_lastval < 0) {
+        updateNumericInput(session, "gridcost_lastval", value = 0)
+        showNotification("Grid cost must be non-negative. Value reset to 0.", type = "warning")
+      }#endif
+    })
+    #replace feed_in last value with 0 if negative
+    observeEvent(input$feedin_lastval, {
+      if (input$feedin_lastval < 0) {
+        updateNumericInput(session, "feedin_lastval", value = 0) 
+        showNotification("Feed-in must be non-negative. Value reset to 0.", type = "warning") 
+      }#endif
+    })
+    
     # first button - Load Energy Data
     observeEvent(input$load_data, {
         #showModal(modalDialog("Loading energy data...", footer = NULL))
@@ -96,12 +112,13 @@ server <- function(input, output, session) {
         validstartdate <- format(input$start_date, "%Y-%m-%d") # ensure a string (in YYYY-MM-DD format)
       } else {
          validstartdate <- '2026-01-01'
-        }
+      }#endif
       
+    
         tryCatch({
-            # Convert percentage inputs to decimal form for processing
-            sp <- list(
-                use_cache_data = input$use_cache_data,
+          # in sp, convert percentage inputs to decimal form for processing
+          sp <- list(
+               # use_cache_data = input$use_cache_data,
                 fixed_seed = input$fixed_seed,
                 
                 # Battery parameters
@@ -158,63 +175,35 @@ server <- function(input, output, session) {
             )
             
             system_params(sp)
+            print("sys params loaded")
             
             showModal(modalDialog("Loading solar and energy consumption data...", footer = NULL))
             #removeModal()
             
-            
-            if (sp$use_cache_data) {
-                # solar <- solar(readRDS("_cache/solar.Rds"))
-                # elcons <- elcons(readRDS("_cache/elcons_data.Rds"))
-                # 
-                df1 <- myCombineConsAndSolar(#solar
-                  readRDS("_cache/solar.Rds")$solar_data
-                  #elcons
-                  , readRDS("_cache/elcons_data.Rds")$elcons)
-            } else {
-                # solar( getSolarData(
-                #     lat = sp$lat, lon = sp$lon, start_date = sp$start_date,
-                #     system_lifetime = sp$system_lifetime, loss = sp$PV_system_loss,
-                #     angle = sp$PV_angle, aspect = sp$PV_aspect, peakpower = sp$PV_peakpower,
-                #     add_PV_noise = sp$PV_add_PV_noise, fixed_seed = sp$fixed_seed
-                # ))
-                # elcons( get_load_data(
-                #     start_date = sp$start_date, system_lifetime = sp$system_lifetime,
-                #     annual_consumption = sp$HH_annual_consumption, fixed_seed = sp$fixed_seed,
-                #     add_HH_cons_noise = sp$HH_add_cons_multiplier
-                # ))
-              # getsolar <-   getSolarData(
-              #   lat = sp$lat, lon = sp$lon, start_date = sp$start_date,
-              #   system_lifetime = sp$system_lifetime, loss = sp$PV_system_loss,
-              #   angle = sp$PV_angle, aspect = sp$PV_aspect, peakpower = sp$PV_peakpower,
-              #   add_PV_noise = sp$PV_add_PV_noise, fixed_seed = sp$fixed_seed
-              # )
-              # getelcons <- get_load_data(
-              #   start_date = sp$start_date, system_lifetime = sp$system_lifetime,
-              #   annual_consumption = sp$HH_annual_consumption, fixed_seed = sp$fixed_seed,
-              #   add_HH_cons_noise = sp$HH_add_cons_multiplier
-              # )
-              # gestolar_plot <- getsolar$plot
-              # geteclons_plot <- getelcons$plot
-              
-              df1 <- myCombineConsAndSolar(
+            df1 <- myCombineConsAndSolar(
                 #solar
                 getSolarData(
-                  lat = sp$lat, lon = sp$lon, start_date = sp$start_date,
-                  system_lifetime = sp$system_lifetime, loss = sp$PV_system_loss,
-                  angle = sp$PV_angle, aspect = sp$PV_aspect, peakpower = sp$PV_peakpower,
-                  add_PV_noise = sp$PV_add_PV_noise, fixed_seed = sp$fixed_seed
+                  lat = sp$lat
+                  , lon = sp$lon
+                  , start_date = sp$start_date
+                  , system_lifetime = sp$system_lifetime
+                  , loss = sp$PV_system_loss
+                  , angle = sp$PV_angle
+                  , aspect = sp$PV_aspect
+                  , peakpower = sp$PV_peakpower
+                  , add_PV_noise = sp$PV_add_PV_noise
+                  , fixed_seed = sp$fixed_seed
                 )$solar_data
                 #elcons
                 , get_load_data(
-                  start_date = sp$start_date, system_lifetime = sp$system_lifetime,
-                  annual_consumption = sp$HH_annual_consumption, fixed_seed = sp$fixed_seed,
-                  add_HH_cons_noise = sp$HH_add_cons_multiplier
-                )$elcons)
+                  start_date = sp$start_date
+                  , system_lifetime = sp$system_lifetime
+                  , annual_consumption = sp$HH_annual_consumption
+                  , fixed_seed = sp$fixed_seed
+                  , add_HH_cons_noise = sp$HH_add_cons_noise
+                )$elcons
+                )
               
-              #rm(getsolar, getelcons)
-            }#endif cache
-            
             gc(full = TRUE)
             print("df1 done")
             #glimpse(df1)
@@ -264,9 +253,9 @@ server <- function(input, output, session) {
         calculations_done(FALSE)
         
         tryCatch({
-            
+          
           sp <- list(
-            use_cache_data = input$use_cache_data,
+           # use_cache_data = input$use_cache_data,
             fixed_seed = input$fixed_seed,
             
             # Battery parameters
@@ -323,15 +312,11 @@ server <- function(input, output, session) {
           )
           
           system_params(sp)
-          
+          print("sys params loaded")
           
           showModal(modalDialog("Loading price-related data...", footer = NULL))
             
-            if (sp$use_cache_data) {
-                grid_cost <- grid_cost(readRDS("_cache/grid_cost.Rds") )
-                feed_in <- feed_in( readRDS("_cache/feed_in_price.Rds") )
-                elprice <- elprice( readRDS("_cache/elprice.Rds") )
-            } else {
+            
                 grid_cost <- my_gridcost(
                     my_data_read_distrib_costs_observed_data()
                     , startdate = sp$start_date,
@@ -363,7 +348,7 @@ server <- function(input, output, session) {
                 )
               print("elprice loaded")  
                 gc(full = TRUE)
-                }
+                
             
             #DEBUG
             # cat("Data types check:\n")
