@@ -589,29 +589,49 @@ my_elprice <- function(df
       #drop unneeded cols
       select(-(mean_price:quantile_975))
      print("future_prices_step1 - rand walk done")
-     rm(future_prices_step0)
+     
     if (method %in% c("random_walk")) {
       future_prices_step2 <- future_prices_step1 %>% 
         mutate(
           price_method =  lastval + cumsum(innovation) 
         )
       print("future_prices_step2 - rand walk done")
+      rm(future_prices_step0)
       rm(future_prices_step1)
     } else if (method %in% c("random_walk_trend")) {
-      drift_per_hour <- (annual_growth * lastval) / (365 * 24)
-      future_prices_step2 <- future_prices_step1 %>% 
-        mutate(
-          price_method =  lastval + cumsum(drift_per_hour + innovation) 
-        )
+      
+      drift <- log(1 + annual_growth) / (365 * 24)  
+      
+      # adjusts how large changes
+      sigma <- 0.3 / sqrt(365 * 24)
+      
+      n_periods <- nrow(future_prices_step0)
+      log_price <- numeric(n_periods)
+      log_price[1] <- log(lastval)
+      
+      # log-normal random walk with trend
+      for (i in 2:n_periods) {
+        # do a random step with trend
+        log_price[i] <- log_price[i-1] + drift + rnorm(1, 0, sigma)
+        
+        # do a reversion every month to prevent runaway trends
+        if (i %% 168*4 == 0) {
+          expected <- log(lastval) + drift * i
+          log_price[i] <- 0.95 * log_price[i] + 0.05 * expected
+        }
+      }
+    
+      price_path <- exp(log_price)
+      
+      # adjust the most extreme values
+      q <- quantile(price_path, c(0.001, 0.999))
+      price_path <- pmin(pmax(price_path, q[1]), q[2])
+      
+      future_prices_step2 <- future_prices_step0 %>%
+        mutate(price_method = price_path)
+      
       print("future_prices_step2 - rand walk done")
-      rm(future_prices_step1)
-    } else if (method %in% c("mean_reverting_rw")) {
-      innovations <- future_prices_step1$innovation
-      future_prices_step2 <- future_prices_step1 %>%
-        mutate(
-          price_method = accumulate(innovations, ~ .x + theta * (mu - .x) + .y, .init = lastval)[-1]
-        )
-      print("future_prices_step2 - rand walk done")
+      rm(future_prices_step0)
       rm(future_prices_step1)
     } else {
       stop("Unknown method, my_elprice() is stopping")
