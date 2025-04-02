@@ -1,0 +1,39 @@
+{
+   "languages": [
+      "en",
+      "cs"
+   ],
+   "translation": [
+      { "en": "PV Analyzer", "cs": "PV Analyzátor" },
+      { "en": "Welcome to the PV Analyzer:", "cs": "Vítejte v PV Analyzátoru:" },
+      { "en": "Please follow these steps:", "cs": "Postupujte podle těchto kroků:" },
+      { "en": "Browse the tabs and set the values of parameters.", "cs": "Procházejte karty a nastavte hodnoty parametrů." },
+      { "en": "Click the 'Load Energy Data' button and wait until the data is loaded.", "cs": "Klikněte na tlačítko 'Načti energetická data' a počkejte, až se data načtou." },
+      { "en": "Click the 'Calculate Financials' button and wait until the calculations are done", "cs": "Klikněte na tlačítko 'Spočítej finance' a počkejte na dokončení výpočtů." },
+      { "en": "See the results on the Results tab.", "cs": "Podívejte se na výsledky na kartě Výsledky." },
+      { "en": "1. Load Energy Data", "cs": "Načti data energií" },
+      { "en": "2. Calculate Financials", "cs": "Spočítej finance" },
+      { "en": "Reset App", "cs": "Resetovat aplikaci" },
+      { "en": "Fixed Seed", "cs": "Fixní seed" },
+      { "en": "Location", "cs": "Poloha" },
+      { "en": "Click on the map to set your location or enter coordinates manually", "cs": "Klikněte na mapu pro nastavení polohy nebo zadejte souřadnice ručně." },
+      { "en": "Date Range", "cs": "Časový rozsah" },
+      { "en": "Battery Parameters", "cs": "Parametry baterie" },
+      { "en": "PV Parameters", "cs": "Parametry FVE" },
+      { "en": "Financials", "cs": "Finance" },
+      { "en": "Household", "cs": "Domácnost" },
+      { "en": "Electricity Prices", "cs": "Ceny elektřiny" },
+      { "en": "Feed-in Tariff", "cs": "Výkupní tarif" },
+      { "en": "Grid Costs", "cs": "Distribuční náklady" },
+      { "en": "Observe Input Data Charts", "cs": "Grafy vstupních dat" },
+      { "en": "Results", "cs": "Výsledky" },
+      { "en": "Financial Summary", "cs": "Finanční souhrn" },
+      { "en": "Hourly Energy Flows", "cs": "Hodinové energetické toky" },
+      { "en": "Plot shows energy flows and battery state for the selected date", "cs": "Graf ukazuje energetické toky a stav baterie pro vybraný den." },
+      { "en": "Download Summary (CSV)", "cs": "Stáhnout souhrn (CSV)" },
+      { "en": "Download Hourly Data (CSV)", "cs": "Stáhnout hodinová data (CSV)" },
+      { "en": "Download Input Parameters (CSV)", "cs": "Stáhnout vstupní parametry (CSV)" },
+      { "en": "Latitude", "cs": "Zeměpisná šířka" },
+      { "en": "Longitude", "cs": "Zeměpisná délka" }
+   ]
+}

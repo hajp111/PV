@@ -5,8 +5,9 @@ required_libs <- setdiff(c("fable", "feasts",  "forecast", "tsibble"
                            , "tidyverse"
                            , "httr", "lubridate",  "purrr", "Rcpp", "readr"
                            ,  "openxlsx"
+                           , "shiny.i18n"
                            #, "writexl",  "readxl"
                            )
                           ,  installed.packages())
 
-install.packages(required_libs)
+install.packages(required_libs, dependencies = TRUE)

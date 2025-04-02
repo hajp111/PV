@@ -1,8 +1,14 @@
 ####  server.R
 library(shinyjs)
+library(shiny.i18n)
 #gcinfo(TRUE)
 
+# Initialize i18n translator
+i18n <- Translator$new(translation_json_path = "translations.json")
+i18n$set_translation_language("en") 
+
 server <- function(input, output, session) {
+    
     print("hiding calculate_financials button")
   
     shinyjs::hide("calculate_financials")
@@ -10,18 +16,35 @@ server <- function(input, output, session) {
     hideTab(inputId = "mainPanelTabs", target = "chartsTab")
     hideTab(inputId = "mainPanelTabs", target = "resultsTab")
 
-    # modal with instructions on app start
-    showModal(modalDialog(
-        title = "Welcome to the PV Analyzer",
-        "Please follow these steps:",
+    # observe language changes
+    lang_reactive <- reactiveVal("en")
+    observeEvent(input$selected_language, {
+      lang_reactive(input$selected_language)
+      i18n$set_translation_language(input$selected_language)
+    })
+    
+    observe({
+      req(lang_reactive())  
+      # modal with instructions on app start
+      showModal(modalDialog(
+        title = i18n$t("Welcome to the PV Analyzer"),
+        i18n$t("Please follow these steps:"),
         tags$ol(
-            tags$li("Browse the tabs and set the values of parameters."),
-            tags$li("Click the 'Load Energy Data' button and wait until the data is loaded."),
-            tags$li("Click the 'Calculate Financials' button and wait until the calculations are done"),
-            tags$li("See the results on the Results tab.")
+          tags$li(i18n$t("Browse the tabs and set the values of parameters.")),
+          tags$li(i18n$t("Click the 'Load Energy Data' button and wait until the data is loaded.")),
+          tags$li(i18n$t("Click the 'Calculate Financials' button and wait until the calculations are done")),
+          tags$li(i18n$t("See the results on the Results tab."))
         ),
         footer = modalButton("OK")
-    ))#end modal
+      ))#end modal
+    })
+    
+    # dynamic UI updates
+    output$title <- renderText({ i18n$t("PV Analyzer") })
+    output$load_btn <- renderText({ i18n$t("1. Load Energy Data") })
+    output$calc_btn <- renderText({ i18n$t("2. Calculate Financials") })
+    output$reset_btn <- renderText({ i18n$t("Reset App") })
+    
     
     
     # reset button 

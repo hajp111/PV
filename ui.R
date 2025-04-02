@@ -4,39 +4,48 @@ library(shiny)
 library(leaflet)
 library(shinythemes)
 library(plotly)
+library(shiny.i18n)
 
-
+i18n <- Translator$new(translation_json_path = "translations.json")
 
 ui <- fluidPage(
-    shinyjs::useShinyjs(),  # Add this line
-    
-    # Add error display area
+    shinyjs::useShinyjs(),
+    shiny.i18n::usei18n(i18n), 
+    # error display area
     tags$div(id = "error-space", style = "color: red; margin: 10px;"),
+    
+    # select language input
+    div(style = "float: right;",
+        selectInput("selected_language", 
+                    label = NULL,
+                    choices = c("English" = "en", "Česky" = "cs"),
+                    selected = "en")
+    ),
+    
     
     theme = shinytheme("flatly"),
     titlePanel("PV Analyzer"),
     sidebarLayout(
         sidebarPanel(
-            h4("Controls"),
-            
-            actionButton(inputId = "load_data", "1. Load Energy Data", class = "btn-primary"),
-            actionButton(inputId = "calculate_financials", "2. Calculate Financials", class = "btn-success"),
+            h4(i18n$t("Controls")),
+            actionButton(inputId = "load_data", label = textOutput("load_btn"), class = "btn-primary"),
+            actionButton(inputId = "calculate_financials", label = textOutput("calc_btn"), class = "btn-success"),
             
             #DEBUG change tab
             #actionButton("testSwitch", "Test Tab Switch"),
             
             #button for session reload
-            actionButton("reset_app", "Reset App"),
-            
+            actionButton("reset_app", label = textOutput("reset_btn")),
             
             #checkboxInput("use_cache_data", "Use Cached Data", value = FALSE),
             checkboxInput("fixed_seed", "Fixed Seed", value = TRUE),
             
-            h4("Location"),
+          
+            h4(i18n$t("Location")),
             leafletOutput("map"),
-            helpText("Click on the map to set your location or enter coordinates manually"),
-            numericInput("lat", "Latitude", 49.278),
-            numericInput("lon", "Longitude", 16.998),
+            helpText(i18n$t("Click on the map to set your location or enter coordinates manually")),
+            numericInput("lat", i18n$t("Latitude"), 49.278),
+            numericInput("lon", i18n$t("Longitude"), 16.998),
             
             h4("Date Range"),
             dateInput("start_date", "Start Date", value = "2025-01-01", max = "2028-01-01"),  #max range for HH energy data is 2073-12-31
