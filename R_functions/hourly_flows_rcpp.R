@@ -153,6 +153,7 @@ CalculateEnergyFlows <- function(dat, params) {
       , hourly_elcons_savings_kwh = cons_kWh - grid_import # positive when PV is beneficial, negative when it is worse than no installation
       , discount_factor = 1 / (1 + params$discount_rate/8760)^(row_number()-1) 
       , discounted_PV_available = PV_available * discount_factor
+      , self_sufficiency_ratio = (1 - (grid_import/total_demand)) %>% round(3)
     )
   
   #toc()
@@ -189,6 +190,8 @@ CalculateFinancials_auxMutate <- function(energy_flows_w_prices, params) {
            , discounted_benefit_alt = benefit_alt * discount_factor
            #, DEBUG_discounted_revenue_from_feed_in = revenue_from_feed_in * discount_factor
            #, DEBUG_discounted_cost_from_grid = cost_from_grid * discount_factor)
+           , cumsum_benefit = cumsum(benefit)
+           , cumsum_discounted_benefit = cumsum(discounted_benefit)
           )
   
   return(energy_flows_w_prices)
@@ -222,14 +225,38 @@ CalculateFinancials <- function(energy_flows
            , hourly_elcons_savings_kwh, hourly_elcons_savings_value) %>% View()
   }#end disabledblock
   
+  #payback period
+ payback_datetime <- energy_flows_w_prices %>% select(datetime, cumsum_benefit) %>%
+    filter(cumsum_benefit > params$installation_cost) %>%
+    slice(1) %>%
+    pull(datetime)
+ if (length(payback_datetime) == 0) {
+   payback_datetime <- NA_Date_
+   payback_period <- NA_real_
+ } else {
+ payback_period <- ((difftime(time1 = payback_datetime, time2 = min(energy_flows_w_prices$date), units = "days") %>% as.numeric())/365.25) %>% round(1)
+ }#endif 
+ #discounted payback period
+ discounted_payback_datetime <- energy_flows_w_prices %>% select(datetime, cumsum_discounted_benefit) %>%
+   filter(cumsum_discounted_benefit > params$installation_cost) %>%
+   slice(1) %>%
+   pull(datetime)
+ if (length(discounted_payback_datetime) == 0) {
+   discounted_payback_datetime <- NA_Date_
+   discounted_payback_period <- NA_real_
+ } else {
+ discounted_payback_period <- ((difftime(time1 = discounted_payback_datetime, time2 = min(energy_flows_w_prices$date), units = "days") %>% as.numeric())/365.25) %>% round(1)
+ }#endif
+ 
+    
   # create summary to be returned along with the hourly data
   summary_vals <- tibble(
            date_range = paste0( energy_flows_w_prices$date %>% min() %>% format("%Y-%m-%d"), " - ",  energy_flows_w_prices$date %>% max() %>% format("%Y-%m-%d"))
            , date_range_years = (difftime(energy_flows_w_prices$date %>% max(), energy_flows_w_prices$date %>% min(), units = "days") %>% as.numeric() / 365.25) %>% round(2)
            , discounted_net_cashflow_without_PV = sum(energy_flows_w_prices$discounted_net_cashflow_without_PV) %>% round(1)
            , discounted_net_cashflow_explicit = sum(energy_flows_w_prices$discounted_net_cashflow_explicit)
-           , discounted_maintenance_costs = paste0( sum(energy_flows_w_prices$discounted_maintenance_costs) %>% round(1), " Annually: ", (sum(energy_flows_w_prices$discounted_maintenance_costs) / (params$system_lifetime)) %>% round(0) )
-           , discounted_net_cashflow_explicit_w_maintenance = sum(energy_flows_w_prices$discounted_net_cashflow_explicit_w_maintenance) %>% round(3)
+           , discounted_maintenance_costs =  sum(energy_flows_w_prices$discounted_maintenance_costs) %>% round(1)
+           , discounted_net_cashflow_explicit_w_maintenance = sum(energy_flows_w_prices$discounted_net_cashflow_explicit_w_maintenance) %>% round(1)
            #
            , discounted_benefit_wo_maintenance = sum(energy_flows_w_prices$discounted_benefit_wo_maintenance) %>% round(1)
            , discounted_benefit = sum(energy_flows_w_prices$discounted_benefit) %>% round(1)
@@ -255,6 +282,9 @@ CalculateFinancials <- function(energy_flows
            , annualized_rate_of_return_alt = (-1 + ( FV/installation_cost ) ^ (1/date_range_years)) %>% round(4)  #CAGR formula: -1+ (end_vale / start_value)^(1/years),  should be the same as annualized_rate_of_return
            , breakeven_feedin = FindBreakevenFeedIn(hourly_energy_flows = energy_flows_w_prices, params = params) %>% round(2)
            , breakeven_price = FindBreakevenPrice(hourly_energy_flows = energy_flows_w_prices, params = params) %>% round(2)
+           , payback_period  
+           , discounted_payback_period = discounted_payback_period
+           , self_sufficiency_ratio = mean(energy_flows_w_prices$self_sufficiency_ratio, na.rm = TRUE) %>% round(3)
       #     , DEBUG_elcons_x_price = mean(energy_flows_w_prices$price) * elcons_saved
       #     , DEBUG_elprice = paste0("Min: ", min(energy_flows_w_prices$price) %>% round(1), " Max: ", max(energy_flows_w_prices$price) %>% round(1), " Mean: ", mean(energy_flows_w_prices$price) %>% round(1))
       #     , DEBUG_feed_in =  paste0("Min: ", min(energy_flows_w_prices$feed_in) %>% round(1), " Max: ", max(energy_flows_w_prices$feed_in) %>% round(1), " Mean: ", mean(energy_flows_w_prices$feed_in) %>% round(1))
