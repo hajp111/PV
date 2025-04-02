@@ -3,24 +3,51 @@ library(shinyjs)
 library(shiny.i18n)
 #gcinfo(TRUE)
 
-# Initialize i18n translator
-i18n <- Translator$new(translation_json_path = "translations.json")
-i18n$set_translation_language("en") 
-
 server <- function(input, output, session) {
-    
-    print("hiding calculate_financials button")
+  # Initialize i18n translator
+  i18n <- Translator$new(translation_json_path = "translations.json")
+  i18n$set_translation_language("en") 
   
+    #### hide/show elements at start
+    print("hiding calculate_financials button")
     shinyjs::hide("calculate_financials")
-    # hide the results tabs 
-    hideTab(inputId = "mainPanelTabs", target = "chartsTab")
-    hideTab(inputId = "mainPanelTabs", target = "resultsTab")
+    # # hide the results tabs 
+    # hideTab(inputId = "mainPanelTabs", target = "chartsTab")
+    # hideTab(inputId = "mainPanelTabs", target = "resultsTab")
+    # tabs_visible <- reactiveValues(
+    #   charts = FALSE,
+    #   results = FALSE
+    # )
+    
 
     # observe language changes
     lang_reactive <- reactiveVal("en")
     observeEvent(input$selected_language, {
       lang_reactive(input$selected_language)
       i18n$set_translation_language(input$selected_language)
+      
+      # DEBUG: check language change is noticed
+      message("Language changed to: ", input$selected_language)
+      test_translation <- i18n$t("This is a test")
+      message("Check text: ", test_translation)
+      
+      # change UI elements
+      output$title <- renderText({ i18n$t("PV Analyzer") })
+      output$title_panel <- renderText({ i18n$t("PV Analyzer") })
+      output$load_btn <- renderText({ i18n$t("1. Load Energy Data") })
+      output$calc_btn <- renderText({ i18n$t("2. Calculate Financials") })
+      output$reset_btn <- renderText({ i18n$t("Reset App") })
+      
+      output$controls_header <- renderText({ i18n$t("Controls") })
+      output$fixed_seed_label <- renderText({ i18n$t("Fixed Seed") })
+      output$location_header <- renderText({ i18n$t("Location") })
+      output$location_help <- renderText({ i18n$t("Click on the map to set your location or enter coordinates manually") })
+      output$latitude_label <- renderText({ i18n$t("Latitude") })
+      output$longitude_label <- renderText({ i18n$t("Longitude") })
+      output$date_range_header <- renderText({ i18n$t("Date Range") })
+      output$start_date_label <- renderText({ i18n$t("Start Date") })
+      output$system_lifetime_label <- renderText({ i18n$t("System Lifetime (years)") })
+      
     })
     
     observe({
@@ -30,7 +57,7 @@ server <- function(input, output, session) {
         title = i18n$t("Welcome to the PV Analyzer"),
         i18n$t("Please follow these steps:"),
         tags$ol(
-          tags$li(i18n$t("Browse the tabs and set the values of parameters.")),
+          tags$li(i18n$t("Browse the input tabs and set the values of parameters.")),
           tags$li(i18n$t("Click the 'Load Energy Data' button and wait until the data is loaded.")),
           tags$li(i18n$t("Click the 'Calculate Financials' button and wait until the calculations are done")),
           tags$li(i18n$t("See the results on the Results tab."))
@@ -39,21 +66,178 @@ server <- function(input, output, session) {
       ))#end modal
     })
     
-    # dynamic UI updates
-    output$title <- renderText({ i18n$t("PV Analyzer") })
-    output$load_btn <- renderText({ i18n$t("1. Load Energy Data") })
-    output$calc_btn <- renderText({ i18n$t("2. Calculate Financials") })
-    output$reset_btn <- renderText({ i18n$t("Reset App") })
+    #### dynamic UI updates
     
+    # entire tabs section
     
+    # Create reactive versions of the choice lists
+    elprice_choices_list <- reactive({
+      req(lang_reactive())
+      list(
+        "Provided Value with Growth" = "last_w_growth",
+        "Historical with Growth" = "historical_w_growth",
+        "Static" = "static",
+        "Time Series Model" = "linear",
+        "Random Walk" = "random_walk",
+        "Random Walk with Trend" = "random_walk_trend",
+        "Mean Reverting Random Walk" = "mean_reverting_rw",
+        "Repeat Selected Year" = "selected_year"
+      ) %>% 
+        setNames(., sapply(names(.), function(x) i18n$t(x)))
+    })
     
-    # reset button 
-    observeEvent(input$reset_app, {
-      session$reload()
+    feedin_choices_list <- reactive({
+      req(lang_reactive())
+      list("Provided Value with Growth" = "last_w_growth") %>% 
+        setNames(., sapply(names(.), function(x) i18n$t(x)))
+    })
+    
+    gridcost_choices_list <- reactive({
+      req(lang_reactive())
+      list(
+        "Provided Value with Growth" = "last_w_growth",
+        "Static" = "static",
+        "Time Series Model" = "linear",
+        "Historical with Growth" = "historical_w_growth"
+      ) %>% 
+        setNames(., sapply(names(.), function(x) i18n$t(x)))
     })
     
     
-    # reactive values to store intermediate results
+    output$translated_tabs <- renderUI({
+      req(lang_reactive())
+      tabsetPanel(id = "mainPanelTabs",
+                  tabPanel(i18n$t("Battery Parameters"), value = "batteryTab",
+                           numericInput("battery_capacity_kwh", i18n$t("Capacity (kWh)"), 10, min = 0),
+                           numericInput("battery_charge_efficiency", i18n$t("Charge Efficiency"), 0.95, min = 0, max = 1, step = 0.01),
+                           helpText(i18n$t("Value between 0 and 1. When charging with E kWh, stored energy is E × efficiency")),
+                           numericInput("battery_discharge_efficiency", i18n$t("Discharge Efficiency"), 0.95, min = 0, max = 1, step = 0.01),
+                           helpText(i18n$t("Value between 0 and 1. When discharging E kWh, released energy is E × efficiency")),
+                           numericInput("battery_initial_soc", i18n$t("Initial SOC (%)"), 20, min = 0, max = 100, step = 1),
+                           numericInput("battery_min_soc", i18n$t("Min SOC (%)"), 10, min = 0, max = 100, step = 1),
+                           helpText(i18n$t("Minimum state of charge to avoid battery damage")),
+                           numericInput("battery_max_soc", i18n$t("Max SOC (%)"), 100, min = 0, max = 100, step = 1),
+                           helpText(i18n$t("Maximum state of charge (100% = full capacity)")),
+                           #degradation of 1.1% annualy corresponds to decrease to 80% in 20 years
+                           numericInput("battery_degradation", i18n$t("Degradation Rate/year"), 0.01, min = 0, max = 1, step = 0.01),
+                           helpText(i18n$t("Annual battery capacity degradation rate (decimal, e.g., 0.01 = 1%)")),
+                           helpText(i18n$t("Degredation to 80% in 20 years corresponds to about 1.1% annual degredation rate"))
+                  ),
+                  
+                  tabPanel(i18n$t("PV Parameters"), value = "pvTab",
+                           numericInput("PV_peakpower", i18n$t("Peak Power (kWp)"), 4.5, min = 0, max = 20),
+                           numericInput("PV_system_loss", i18n$t("System Loss (%)"), 14, min = 0, max = 100),
+                           helpText(i18n$t("Overall system losses in percent")),
+                           numericInput("PV_angle", i18n$t("Inclination Angle"), 30, min = 0, max = 90),
+                           helpText(i18n$t("Panel inclination (0° = horizontal, 90° = vertical)")),
+                           numericInput("PV_aspect", i18n$t("Azimuth Angle"), 0, min = -180, max = 180),
+                           helpText(i18n$t("Panel orientation (0° = South, 90° = West, -90° = East)")),
+                           numericInput("PV_degradation", i18n$t("Degradation Rate/year"), 0.01, min = 0, max = 1, step = 0.01),
+                           helpText(i18n$t("Annual PV panel degradation rate (decimal, e.g., 0.01 = 1%)")),
+                           helpText(i18n$t("Degredation to 80% in 20 years corresponds to about 1.1% annual degredation rate")),
+                           numericInput("PV_system_own_consumption", i18n$t("System Consumption (kWh/h)"), 0.03, min = 0),
+                           helpText(i18n$t("Constant energy consumption of the PV system (inverter, etc.)")),
+                           numericInput("PV_add_PV_noise", i18n$t("PV Noise Multiplier"), 0.0, min = 0),
+                           helpText(i18n$t("Adds random variation to PV output (0.2 means ±20% variation)"))
+                  ),
+                  
+                  tabPanel(i18n$t("Financials"), value = "financialsTab",
+                           numericInput("installation_cost", i18n$t("Installation Cost (CZK)"), 200000, min = 0),
+                           numericInput("annual_maintenance_cost", i18n$t("Annual Maintenance (CZK)"), 4000, min = 0),
+                           numericInput("discount_rate", i18n$t("Discount Rate"), 0.03, min = 0, max = 1, step = 0.01),
+                           helpText(i18n$t("Annual discount rate for NPV calculations (decimal, e.g., 0.03 = 3%)"))
+                  ),
+                  
+                  tabPanel(i18n$t("Household"), value = "householdTab",
+                           numericInput("HH_annual_consumption", i18n$t("Annual Consumption (MWh)"), 3, min = 0),
+                           numericInput("HH_add_cons_noise", i18n$t("Consumption Noise Multiplier"), 0.8, min = 0, step = 0.1),
+                           helpText(i18n$t("Adds random variation to consumption (0.2 means ±20% variation)"))
+                  ),
+                  
+                  tabPanel(i18n$t("Electricity Prices"), value = "elpriceTab",
+                           selectInput(
+                             "elprice_method",
+                             i18n$t("Price Method"),
+                             choices = elprice_choices_list()
+                           ),
+                           helpText(i18n$t("Method for electricity price projection")),
+                           numericInput("add_random_noise", i18n$t("Add Random Noise to Data"), 0.00, step = 0.05, min = 0, max = 1),
+                           helpText(i18n$t("Adds random variation to el. price (0.2 means ±20% variation)")),
+                           
+                           conditionalPanel(
+                             condition = "input.elprice_method == 'last_w_growth'",
+                             numericInput("elprice_lastval", i18n$t("Provided El. Price (CZK/kWh) to apply"), 3.5, step = 0.1),
+                             helpText(i18n$t("Electricity price to apply the growth rate to"))
+                           ),
+                           conditionalPanel(
+                             condition = "input.elprice_method == 'selected_year'",
+                             selectInput("selected_year", i18n$t("Repeat Year from Observations"), choices = c(2016:2023), selected = 2023)
+                           ),
+                           conditionalPanel(
+                             condition = "['last_w_growth', 'historical_w_growth', 'random_walk_trend'].includes(input.elprice_method)",
+                             numericInput("elprice_annual_growth", i18n$t("Annual Growth"), 0.05, step = 0.01),
+                             helpText(i18n$t("Annual price growth rate (decimal, e.g., 0.05 = 5%)"))
+                           ),
+                           
+                           checkboxInput("elprice_add_intraday_variability", i18n$t("Intraday Variability"), TRUE),
+                           helpText(i18n$t("Add daily price patterns")),
+                           checkboxInput("elprice_add_intraweek_variability", i18n$t("Intraweek Variability"), TRUE),
+                           helpText(i18n$t("Add weekday price patterns"))
+                  ),
+                  
+                  tabPanel(i18n$t("Feed-in Tariff"), value = "feedinTab",
+                           selectInput("feedin_method", i18n$t("Method"),
+                                       choices = feedin_choices_list()
+                           ),
+                           numericInput("feedin_lastval", i18n$t("Provided Value (CZK/kWh)"), 1.1, min = 0),
+                           numericInput("feedin_annual_growth", i18n$t("Annual Growth"), -0.1, step = 0.01),
+                           helpText(i18n$t("Annual feed-in tariff growth rate (decimal, e.g., 0.01 = 1%)"))
+                  ),
+                  
+                  tabPanel(i18n$t("Grid Costs"), value = "gridcostTab",
+                           
+                           
+                           selectInput("gridcost_method", i18n$t("Method"),
+                                       choices = gridcost_choices_list()
+                           ),
+                           conditionalPanel(
+                             condition = "input.gridcost_method == 'last_w_growth'",
+                             numericInput("gridcost_lastval", i18n$t("Provided Grid Cost (CZK/kWh) to apply as initial observation"), 2.8, step = 0.1),
+                             helpText(i18n$t("Grid cost to apply the growth rate to (in CZK/kWh)"))
+                           ),
+                           
+                           conditionalPanel(
+                             condition = "['last_w_growth', 'historical_w_growth'].includes(input.gridcost_method)",
+                             numericInput("gridcost_annual_growth", i18n$t("Annual Growth"), 0.02, step = 0.01),
+                             helpText(i18n$t("Annual grid cost growth rate (decimal, e.g., 0.04 = 4%)"))
+                           )
+                  ),
+                  
+                  tabPanel(i18n$t("Observe Input Data Charts"), value = "chartsTab",
+                           plotOutput("elconsPlot"),
+                           plotOutput("solarPlot"),
+                           plotOutput("gridCostPlot"),
+                           plotOutput("feedInPlot"),
+                           plotOutput("elpricePlot")
+                  ),
+                  
+                  tabPanel(i18n$t("Results"), value = "resultsTab",
+                           h3(i18n$t("Financial Summary")),
+                           tableOutput("summary_table"),
+                           h3(i18n$t("Hourly Energy Flows")),
+                           dateInput("plot_date", i18n$t("Select Date"), value = Sys.Date()),
+                           plotlyOutput("energy_plot"),
+                           helpText(i18n$t("Plot shows energy flows and battery state for the selected date")),
+                           downloadButton("download_summary", i18n$t("Download Summary (CSV)"), class = "btn btn-primary"),
+                           downloadButton("download_hourly", i18n$t("Download Hourly Data (CSV)"), class = "btn btn-success"),
+                           downloadButton("download_params", i18n$t("Download Input Parameters (CSV)"), class = "btn btn-success")
+                  )
+      )#end tabsetPanel
+    })#end translated_tabs
+    
+   
+    
+    #### reactive values to store intermediate results
     system_params <- reactiveVal(NULL)
     # solar <- reactiveVal(NULL)
     # elcons <- reactiveVal(NULL)
@@ -71,8 +255,12 @@ server <- function(input, output, session) {
     calculations_done <- reactiveVal(FALSE)
     
     
+    #### functionality for reset button 
+    observeEvent(input$reset_app, {
+      session$reload()
+    })
     
-    # render map
+    #### render map
     output$map <- renderLeaflet({
         leaflet() %>%
             addTiles() %>%
@@ -95,25 +283,34 @@ server <- function(input, output, session) {
       }
     })
 
-    
-    # replace grid_cost last value with 0 if negative
+    #### replace values with 0 if input negative 
+    # grid_cost 
     observeEvent(input$gridcost_lastval, {
       if (input$gridcost_lastval < 0) {
         updateNumericInput(session, "gridcost_lastval", value = 0)
-        showNotification("Grid cost must be non-negative. Value reset to 0.", type = "warning")
+        showNotification(i18n$t("Grid cost must be non-negative. Value reset to 0."), type = "warning")
       }#endif
     })
-    #replace feed_in last value with 0 if negative
+    # feed_in
     observeEvent(input$feedin_lastval, {
       if (input$feedin_lastval < 0) {
         updateNumericInput(session, "feedin_lastval", value = 0) 
-        showNotification("Feed-in must be non-negative. Value reset to 0.", type = "warning") 
+        showNotification(i18n$t("Feed-in must be non-negative. Value reset to 0."), type = "warning") 
       }#endif
     })
     
-    # first button - Load Energy Data
+    #### navigate to Results tab
+    observe({
+      print(paste("observe final_results: final_results is", ifelse(is.null(final_results()), "NULL", "calculated"))) 
+      if (!is.null(final_results())) {
+        updateTabsetPanel(session, "mainPanelTabs", selected = "resultsTab")
+      }
+    })
+    
+    
+    #### logic for the first button - Load Energy Data
     observeEvent(input$load_data, {
-        #showModal(modalDialog("Loading energy data...", footer = NULL))
+        #showModal(modalDialog(i18n$t("Loading energy data..."), footer = NULL))
         
       # valid range for system lifetime
       min_val <- 1
@@ -122,11 +319,11 @@ server <- function(input, output, session) {
       if (user_val < min_val) {
         updateNumericInput(session, "system_lifetime", value = min_val)
         validsyslife <- min_val
-        showNotification("System Lifetime enterd was out of bounds, set to minimum allowed.", type = "warning")
+        showNotification(i18n$t("System Lifetime enterd was out of bounds, set to minimum allowed."), type = "warning")
       } else if (user_val > max_val) {
         updateNumericInput(session, "system_lifetime", value = max_val)
         validsyslife <- max_val
-        showNotification("System Lifetime enterd was out of bounds, set to maximum allowed.", type = "warning")
+        showNotification(i18n$t("System Lifetime enterd was out of bounds, set to maximum allowed."), type = "warning")
       } else {
         validsyslife <- input$system_lifetime
       }#endif
@@ -202,7 +399,7 @@ server <- function(input, output, session) {
             print("sys params loaded")
             
             
-            showModal(modalDialog("Loading solar and energy consumption data...", footer = NULL))
+            showModal(modalDialog(i18n$t("Loading solar and energy consumption data..."), footer = NULL))
             #removeModal()
             
             df1 <- myCombineConsAndSolar(
@@ -235,7 +432,7 @@ server <- function(input, output, session) {
             #energy_flows <- CalculateEnergyFlows(df1, sp)
             
             removeModal()
-            showModal(modalDialog("Calculating expected energy flows...", footer = NULL))
+            showModal(modalDialog(i18n$t("Calculating expected energy flows..."), footer = NULL))
             
             
             energy_flows(CalculateEnergyFlows(df1, sp)) 
@@ -245,7 +442,7 @@ server <- function(input, output, session) {
             gc(full = TRUE)
             #glimpse(energy_flows)
             
-            showNotification("Energy data loaded successfully", type = "message")
+            showNotification(i18n$t("Energy data loaded successfully"), type = "message")
             #hide load data button
             shinyjs::hide("load_data")
             print("hiding load data button")
@@ -263,7 +460,7 @@ server <- function(input, output, session) {
             shinyjs::show("calculate_financials")
            
         }, error = function(e) {
-            showNotification(paste("Error loading data:", e$message), type = "error", duration = 15)
+            showNotification(paste(i18n$t("Error loading data:"), e$message), type = "error", duration = 15)
         }, finally = {
             removeModal()
           endata_loaded(TRUE)  # Set flag to block future clicks
@@ -271,7 +468,7 @@ server <- function(input, output, session) {
         })
     })
     
-    # Second button - Load Financial Data and Calculate
+    #### logic for the second button - Calculate Financial Data 
     observeEvent(input$calculate_financials, {
       shiny::req(system_params(), energy_flows())
         #showModal(modalDialog("Calculating financials...", footer = NULL))
@@ -339,28 +536,28 @@ server <- function(input, output, session) {
           system_params(sp)
           print("sys params loaded")
           
-          showModal(modalDialog("Loading price-related data...", footer = NULL))
+          showModal(modalDialog(i18n$t("Loading price-related data..."), footer = NULL))
             
             
-                grid_cost <- my_gridcost(
+          grid_cost <- my_gridcost(
                     my_data_read_distrib_costs_observed_data()
-                    , startdate = sp$start_date,
+                    , startdate = sp$start_date
                     , years = sp$system_lifetime
                     , annual_growth = sp$gridcost_annual_growth
                     , method = sp$gridcost_method
                     , lastval = sp$gridcost_lastval
-                )
-              print("grid_cost loaded")
-                feed_in <- my_feed_in(
+                    )
+          print("grid_cost loaded")
+          feed_in <- my_feed_in(
                     years = sp$system_lifetime
                     , annual_growth = sp$feedin_annual_growth
                     , startdate = sp$start_date
                     , method = sp$feedin_method
                     , fixed_seed = sp$fixed_seed
                     , lastval = sp$feedin_lastval
-                )
-              print("feed_in loaded")  
-                elprice <- my_elprice(
+                    )
+          print("feed_in loaded")  
+          elprice <- my_elprice(
                     my_data_read_elprice_observed_data()
                     , startdate = sp$start_date
                     , years = sp$system_lifetime, annual_growth = sp$elprice_annual_growth
@@ -370,9 +567,9 @@ server <- function(input, output, session) {
                     , lastval = sp$elprice_lastval
                     , selected_year = sp$elprice_selected_year 
                     , add_random_noise = sp$elprice_add_random_noise
-                )
-              print("elprice loaded")  
-                gc(full = TRUE)
+                    )
+          print("elprice loaded")  
+          gc(full = TRUE)
                 
             
             #DEBUG
@@ -398,31 +595,31 @@ server <- function(input, output, session) {
             # glimpse(grid_cost$grid_cost)
             
           removeModal()
-          showModal(modalDialog("Calculating financials...", footer = NULL))
+          showModal(modalDialog(i18n$t("Calculating financials..."), footer = NULL))
           
-            final_results( CalculateFinancials(
+          final_results( CalculateFinancials(
                 energy_flows(), elprice$price_data, feed_in$feed_in, grid_cost$grid_cost, params = sp
-            ))
+          ))
             
-            print("final_results done")
-            rm(elprice, feed_in, grid_cost)
-            gc(full = TRUE)
-            calculations_done(TRUE)
-            showNotification("Financial calculations complete", type = "message")
+          print("final_results done")
+          rm(elprice, feed_in, grid_cost)
+          gc(full = TRUE)
+          calculations_done(TRUE)
+          showNotification(i18n$t("Financial calculations complete"), type = "message")
             
             
         }, error = function(e) {
-            showNotification(paste("Error in financial calculations:", e$message), type = "error", duration = 15)
+            showNotification(paste(i18n$t("Error in financial calculations:"), e$message), type = "error", duration = 15)
         }, finally = {
             
-            showTab(inputId = "mainPanelTabs", target = "chartsTab")
-            showTab(inputId = "mainPanelTabs", target = "resultsTab")
+            #showTab(inputId = "mainPanelTabs", target = "chartsTab")
+            #showTab(inputId = "mainPanelTabs", target = "resultsTab")
             removeModal()
             print("step2 done")
         })
     })
     
-    # Render summary table
+    #### render summary table in results
     output$summary_table <- renderTable({
       shiny::req(final_results())
       
@@ -452,16 +649,36 @@ server <- function(input, output, session) {
                                                                , LCOE
                                                                , annualized_rate_of_return
                                                               # , FV
-                                                               , annualized_rate_of_return_alt #should be the same as annualized_rate_of_return
+                                                              # , annualized_rate_of_return_alt #should be the same as annualized_rate_of_return
                                                               , breakeven_feedin
                                                               , breakeven_price
-                                                              )
+                                                              , payback_period
+                                                              , discounted_payback_period
+                                                              , self_sufficiency_ratio
+                                                              ) %>% 
+      rename(
+          "Date range" = date_range
+          , "Discounted benefit (CZK)" = discounted_benefit
+          , "Net Present Value (CZK)" = NPV
+          , "Total electricity generated (kWh)" = total_electricity_generated
+          , "Present value of Total Cost (CZK)" = Present_Value_total_cost
+          , "Levelized Cost of Electricity (CZK/kWh)" = LCOE
+          , "Annualized rate of return" = annualized_rate_of_return
+          , "Break-even feed-in tariff (CZK/kWh)" = breakeven_feedin
+          , "Break-even price (CZK/kWh)" = breakeven_price
+          , "Payback Period (years)" = payback_period
+          , "Discounted Payback Period (years)" = discounted_payback_period
+          , "Self-Sufficiency Ratio" = self_sufficiency_ratio
+           ) %>%
+    setNames(., sapply(names(.), function(x) i18n$t(x))) 
+    
     #show this as a table:
     transpose_this %>% mutate(across(everything(), as.character)) %>%
-     pivot_longer(cols = everything(), names_to = "variable", values_to = "value")
+     pivot_longer(cols = everything(), names_to = "variable", values_to = "value") %>%
+      setNames(., sapply(names(.), function(x) i18n$t(x))) 
     })#end renderTable summary_table
     
-    # interactive plot for daily overview:
+    #### interactive plot for daily overview:
     output$energy_plot <- renderPlotly({
       shiny::req(final_results(), input$plot_date)
         
@@ -525,7 +742,7 @@ server <- function(input, output, session) {
     })#end renderPlotly 
     
     
-    # render plots of inputs
+    #### render plots of inputs
     output$elconsPlot <- renderPlot({
         shiny::req( final_results()$df_hourly )
       
@@ -616,16 +833,9 @@ server <- function(input, output, session) {
     #     print("Test switch tab")
     # })
     
-    # navigate to Results tab
-    observe({
-        print(paste("observe final_results: final_results is", ifelse(is.null(final_results()), "NULL", "calculated"))) 
-        if (!is.null(final_results())) {
-            updateTabsetPanel(session, "mainPanelTabs", selected = "resultsTab")
-        }
-    })
+   
     
-    
-    #buttons for downloads of data:
+    #### buttons for downloads of data:
     #summary data
     output$download_summary <- downloadHandler(
         filename = function() {
@@ -670,4 +880,5 @@ server <- function(input, output, session) {
         readr::write_csv(par, file = file)
       }
     )
-}
+    
+}#end of server

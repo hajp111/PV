@@ -9,6 +9,18 @@ library(shiny.i18n)
 i18n <- Translator$new(translation_json_path = "translations.json")
 
 ui <- fluidPage(
+    
+    tags$footer(style = "position: fixed; 
+                bottom: 0; 
+                width: 100%; 
+                padding: 10px; 
+                background-color: #f0f0f0; 
+                text-align: left; 
+                font-size: 0.8em; 
+                color: #808080;"
+                , "Created by Pavel HAJKO"
+    ),
+    
     shinyjs::useShinyjs(),
     shiny.i18n::usei18n(i18n), 
     # error display area
@@ -27,7 +39,7 @@ ui <- fluidPage(
     titlePanel("PV Analyzer"),
     sidebarLayout(
         sidebarPanel(
-            h4(i18n$t("Controls")),
+            h4(textOutput("controls_header")),
             actionButton(inputId = "load_data", label = textOutput("load_btn"), class = "btn-primary"),
             actionButton(inputId = "calculate_financials", label = textOutput("calc_btn"), class = "btn-success"),
             
@@ -38,156 +50,25 @@ ui <- fluidPage(
             actionButton("reset_app", label = textOutput("reset_btn")),
             
             #checkboxInput("use_cache_data", "Use Cached Data", value = FALSE),
-            checkboxInput("fixed_seed", "Fixed Seed", value = TRUE),
+            checkboxInput("fixed_seed", textOutput("fixed_seed_label"), value = TRUE),
             
           
-            h4(i18n$t("Location")),
+            h4(textOutput("location_header")),
             leafletOutput("map"),
-            helpText(i18n$t("Click on the map to set your location or enter coordinates manually")),
-            numericInput("lat", i18n$t("Latitude"), 49.278),
-            numericInput("lon", i18n$t("Longitude"), 16.998),
+            helpText(textOutput("location_help")),
+            numericInput("lat", textOutput("latitude_label"), 49.278),
+            numericInput("lon", textOutput("longitude_label"), 16.998),
             
-            h4("Date Range"),
-            dateInput("start_date", "Start Date", value = "2025-01-01", max = "2028-01-01"),  #max range for HH energy data is 2073-12-31
-            numericInput("system_lifetime", "System Lifetime (years)",
-                         value = 20, min = 1, step = 1, max = 25)
+            h4(textOutput("date_range_header")),
+            dateInput("start_date", textOutput("start_date_label"), value = "2025-01-01", max = "2028-01-01"),  #max range for HH energy data is 2073-12-31
+            numericInput("system_lifetime", textOutput("system_lifetime_label"), value = 20, min = 1, step = 1, max = 25)
         ),
         
         mainPanel(
-            tabsetPanel( id = "mainPanelTabs"
-                , tabPanel("Battery Parameters", value = "batteryTab",
-                         numericInput("battery_capacity_kwh", "Capacity (kWh)", 10, min = 0),
-                         numericInput("battery_charge_efficiency", "Charge Efficiency", 0.95, min = 0, max = 1, step = 0.01),
-                         helpText("Value between 0 and 1. When charging with E kWh, stored energy is E × efficiency"),
-                         numericInput("battery_discharge_efficiency", "Discharge Efficiency", 0.95, min = 0, max = 1, step = 0.01),
-                         helpText("Value between 0 and 1. When discharging E kWh, released energy is E × efficiency"),
-                         numericInput("battery_initial_soc", "Initial SOC (%)", 20, min = 0, max = 100, step = 1),
-                         helpText("Initial state of charge as percentage of battery capacity"),
-                         numericInput("battery_min_soc", "Min SOC (%)", 10, min = 0, max = 100, step = 1),
-                         helpText("Minimum state of charge to avoid battery damage"),
-                         numericInput("battery_max_soc", "Max SOC (%)", 100, min = 0, max = 100, step = 1),
-                         helpText("Maximum state of charge (100% = full capacity)"),
-                         numericInput("battery_degradation", "Degradation Rate/year", 0.01, min = 0, max = 1, step = 0.01),  #degradation of 1.1% annualy corresponds to decrease to 80% in 20 years
-                         helpText("Annual battery capacity degradation rate (decimal, e.g., 0.01 = 1%)"),
-                         helpText("Degredation to 80% in 20 years corresponds to about 1.1% annual degredation rate"))
-                
-                , tabPanel("PV Parameters", value = "pvTab",
-                         numericInput("PV_peakpower", "Peak Power (kWp)", 4.5, min = 0, max = 20),
-                         numericInput("PV_system_loss", "System Loss (%)", 14, min = 0, max = 100),
-                         helpText("Overall system losses in percent"),
-                         numericInput("PV_angle", "Inclination Angle", 30, min = 0, max = 90),
-                         helpText("Panel inclination (0° = horizontal, 90° = vertical)"),
-                         numericInput("PV_aspect", "Azimuth Angle", 0, min = -180, max = 180),
-                         helpText("Panel orientation (0° = South, 90° = West, -90° = East)"),
-                         numericInput("PV_degradation", "Degradation Rate/year", 0.01, min = 0, max = 1, step = 0.01),
-                         helpText("Annual PV panel degradation rate (decimal, e.g., 0.01 = 1%)"),
-                         helpText("Degredation to 80% in 20 years corresponds to about 1.1% annual degredation rate"),
-                         numericInput("PV_system_own_consumption", "System Consumption (kWh/h)", 0.03, min = 0),
-                         helpText("Constant energy consumption of the PV system (inverter, etc.)"),
-                         numericInput("PV_add_PV_noise", "PV Noise Multiplier", 0.0, min = 0),
-                         helpText("Adds random variation to PV output (0.2 means ±20% variation)"))
-                
-                , tabPanel("Financials", value = "financialsTab",
-                         numericInput("installation_cost", "Installation Cost (CZK)", 200000, min = 0),
-                         numericInput("annual_maintenance_cost", "Annual Maintenance (CZK)", 4000, min = 0),
-                         numericInput("discount_rate", "Discount Rate", 0.03, min = 0, max = 1, step = 0.01),
-                         helpText("Annual discount rate for NPV calculations (decimal, e.g., 0.03 = 3%)"))
-                
-                , tabPanel("Household", value = "householdTab",
-                         numericInput("HH_annual_consumption", "Annual Consumption (MWh)", 3, min = 0),
-                         numericInput("HH_add_cons_noise", "Consumption Noise Multiplier", 0.8, min = 0, step = 0.1),
-                         helpText("Adds random variation to consumption (0.2 means ±20% variation)"))
-                
-                , tabPanel("Electricity Prices", value = "elpriceTab",
-                         selectInput("elprice_method", "Price Method",
-                                     choices = c("Provided Value with Growth" = "last_w_growth"
-                                                 , "Historical with Growth" = "historical_w_growth"
-                                                 , "Static" = "static"
-                                                 , "Time Series Model" = "linear"
-                                                 , "Random Walk" = "random_walk"
-                                                 , "Random Walk with Trend" = "random_walk_trend"
-                                                 , "Mean Reverting Random Walk" = "mean_reverting_rw"
-                                                 , "Repeat Selected Year" = "selected_year")),
-                         helpText("Method for electricity price projection"),
-                         # numericInput("elprice_annual_growth", "Annual Growth", 0.05, step = 0.01),
-                         # helpText("Annual price growth rate (decimal, e.g., 0.05 = 5%)"),
-                         numericInput("add_random_noise", "Add Random Noise to Data", 0.00, step = 0.05, min = 0, max = 1),
-                         helpText("Adds random variation to el. price (0.2 means ±20% variation)"),
-                         #selectInput("selected_year", "Repeat Year from Observations", choices = c(2016:2023)),
-                         #numericInput("elprice_lastval", "Provided El. Price (CZK/kWh) to apply (only for Provided Value with Growth)", 3.5, step = 0.1),
-                         #helpText("Electricity price to apply the growth rate to"),
-                         
-                         conditionalPanel(
-                             condition = "input.elprice_method == 'last_w_growth'",
-                             numericInput("elprice_lastval", "Provided El. Price (CZK/kWh) to apply", 3.5, step = 0.1),
-                             helpText("Electricity price to apply the growth rate to")
-                         ),
-                         conditionalPanel(
-                             condition = "input.elprice_method == 'selected_year'",
-                             selectInput("selected_year", "Repeat Year from Observations", choices = c(2016:2023), selected = 2023)
-                         ),
-                         conditionalPanel(
-                             condition = "['last_w_growth', 'historical_w_growth', 'random_walk_trend'].includes(input.elprice_method)",
-                             numericInput("elprice_annual_growth", "Annual Growth", 0.05, step = 0.01),
-                             helpText("Annual price growth rate (decimal, e.g., 0.05 = 5%)")
-                         ),
-                         
-                         checkboxInput("elprice_add_intraday_variability", "Intraday Variability", TRUE),
-                         helpText("Add daily price patterns"),
-                         checkboxInput("elprice_add_intraweek_variability", "Intraweek Variability", TRUE),
-                         helpText("Add weekday price patterns"))
-                
-                , tabPanel("Feed-in Tariff", value = "feedinTab",
-                         selectInput("feedin_method", "Method", choices = c("Provided Value with Growth" = "last_w_growth")),
-                         numericInput("feedin_lastval", "Provided Value (CZK/kWh)", 1.1, min = 0),
-                         numericInput("feedin_annual_growth", "Annual Growth", 0.01, step = 0.01),
-                         helpText("Annual feed-in tariff growth rate (decimal, e.g., 0.01 = 1%)"))
-                
-                , tabPanel("Grid Costs", value = "gridcostTab",
-                         selectInput("gridcost_method", "Method", 
-                                     choices = c("Provided Value with Growth" = "last_w_growth"
-                                                 , "Static" = "static"
-                                                 , "Time Series Model" = "linear"
-                                                 , "Historical with Growth" = "historical_w_growth" )),
-                         #numericInput("gridcost_annual_growth", "Annual Growth", 0.04, step = 0.01),
-                         #helpText("Annual grid cost growth rate (decimal, e.g., 0.04 = 4%)"),
-                         #numericInput("gridcost_lastval", "Provided Grid Cost (CZK/kWh) to apply (only for Provided Value with Growth)", 2.0, step = 0.1),
-                         #helpText("Grid cost to apply the growth rate to (in CZK/kWh)")
-                         
-                         conditionalPanel(
-                             condition = "input.gridcost_method == 'last_w_growth'",
-                             numericInput("gridcost_lastval", "Provided Grid Cost (CZK/kWh) to apply as initial observation", 2.8, step = 0.1),
-                             helpText("Grid cost to apply the growth rate to (in CZK/kWh)")
-                         ),
-                         
-                         conditionalPanel(
-                             condition = "['last_w_growth', 'historical_w_growth'].includes(input.gridcost_method)",
-                             numericInput("gridcost_annual_growth", "Annual Growth", 0.02, step = 0.01),
-                             helpText("Annual grid cost growth rate (decimal, e.g., 0.04 = 4%)"),
-                         )
-                         
-                         )
-           
-                , tabPanel("Observe Input Data Charts", value = "chartsTab",
-                         plotOutput("elconsPlot"),
-                         plotOutput("solarPlot"),
-                         plotOutput("gridCostPlot"),
-                         plotOutput("feedInPlot"),
-                         plotOutput("elpricePlot")
-                )
-                , tabPanel("Results", value = "resultsTab",
-                         h3("Financial Summary"),
-                         tableOutput("summary_table"),
-                         h3("Hourly Energy Flows"),
-                         dateInput("plot_date", "Select Date", value = Sys.Date()),
-                         plotlyOutput("energy_plot"),
-                         helpText("Plot shows energy flows and battery state for the selected date"),
-                         downloadButton("download_summary", "Download Summary (CSV)", class = "btn btn-primary"),
-                         downloadButton("download_hourly", "Download Hourly Data (CSV)", class = "btn btn-success"),
-                         downloadButton("download_params", "Download Input Parameters (CSV)", class = "btn btn-success")
-                )
-         
-            )
+            #everything in server.R
+            uiOutput("translated_tabs") 
+            
         )
+        
     )
 )#end fluidPage
