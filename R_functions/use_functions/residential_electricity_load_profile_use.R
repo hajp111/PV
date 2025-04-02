@@ -155,14 +155,14 @@ fve_with_expected <- fve %>% left_join(H0_2024_agg_by_year_month_day %>% rename(
 fve_with_expected %>% ggplot() +
   geom_line(aes(x = day_of_year, y = cons_kWh), alpha = .7, color = "red")+
   geom_smooth(aes(x = day_of_year, y = cons_kWh), color = "red", alpha = .1, se = FALSE)+
-    geom_line(aes(x = day_of_year, y = cons_kWh_expected), color = "brown", alpha = .9)+
+    geom_line(aes(x = day_of_year, y = cons_kWh_expected), color = "blue", alpha = .9)+
   #  geom_line(aes(x = day_of_year, y = P_q10), alpha = .7, linetype  = "dotted")+
   #  geom_line(aes(x = day_of_year, y = P_q50), alpha = .7, , linetype  = "dashed")+
   #  geom_line(aes(x = day_of_year, y = P_q90), alpha = .7, linetype  = "dotted")+
   # geom_smooth(aes(x = day_of_year, y = P_q10), color = "brown", alpha = .5, se = FALSE, linetype = "dashed")+
   # geom_smooth(aes(x = day_of_year, y = P_mean), color = "orange", alpha = .9, se = FALSE)+
   # geom_smooth(aes(x = day_of_year, y = P_q90), color = "brown", alpha = .5, se = FALSE, linetype = "dashed")+
-  labs(title = "Actual (red) vs expected (orange) HH consumption"
+  labs(title = "Actual (red) vs expected (blue) HH consumption"
        , x = "Day of year"
        , y = "kWh") +
   facet_grid(rok ~.) +
@@ -176,14 +176,14 @@ fve_with_expected_noise <- fve %>% left_join(H0noise_2024_agg_by_year_month_day 
 fve_with_expected_noise %>% ggplot() +
   geom_line(aes(x = day_of_year, y = cons_kWh), alpha = .7, color = "red")+
   geom_smooth(aes(x = day_of_year, y = cons_kWh), color = "red", alpha = .1, se = FALSE)+
-  geom_line(aes(x = day_of_year, y = cons_kWh_expected), color = "brown", alpha = .9)+
+  geom_line(aes(x = day_of_year, y = cons_kWh_expected), color = "blue", alpha = .9)+
   #  geom_line(aes(x = day_of_year, y = P_q10), alpha = .7, linetype  = "dotted")+
   #  geom_line(aes(x = day_of_year, y = P_q50), alpha = .7, , linetype  = "dashed")+
   #  geom_line(aes(x = day_of_year, y = P_q90), alpha = .7, linetype  = "dotted")+
   # geom_smooth(aes(x = day_of_year, y = P_q10), color = "brown", alpha = .5, se = FALSE, linetype = "dashed")+
   # geom_smooth(aes(x = day_of_year, y = P_mean), color = "orange", alpha = .9, se = FALSE)+
   # geom_smooth(aes(x = day_of_year, y = P_q90), color = "brown", alpha = .5, se = FALSE, linetype = "dashed")+
-  labs(title = "Actual (red) vs expected (orange) HH consumption"
+  labs(title = "Actual (red) vs expected (blue) HH consumption"
        , x = "Day of year"
        , y = "kWh") +
   facet_grid(rok ~.) +

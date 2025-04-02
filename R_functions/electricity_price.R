@@ -493,10 +493,11 @@ my_elprice <- function(df
     )
   
   print("decomposed done")
-  }#end decomposing
+  
   
   mean_trend <- decomposed %>% as_tibble() %>% ungroup() %>% summarise(mean_trend = mean(trend, na.rm = TRUE)
                                                                        , sd_trend = sd(trend, na.rm = TRUE))
+  }#end decomposing
   
   # create future timestamps
   future_timestamps <- seq( startdate, by = "1 hour", length.out = years * 24*365.25 %>% round(0) -1)
