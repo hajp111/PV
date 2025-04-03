@@ -370,13 +370,13 @@ my_feed_in <- function( years = 20
   return(output)
 }#endfunction my_feed_in
 
-my_elprice <- function(df
+my_elprice <- function(df = my_data_read_elprice_observed_data()
                           , years = 20
                           , annual_growth = 0.04
                           , startdate = '2025-01-01'
-                          , method = "linear" # "static", "linear", "last_w_growth", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw", "selected_year" 
+                          , method = "linear" # "static", "linear", "last_w_growth", "historical_w_growth", "random_walk_trend", "selected_year" 
                           , fixed_seed = TRUE
-                          , theta = 0.05
+                          , theta = 0.35
                           , add_intraday_variability = TRUE
                           , add_intraweek_variability = TRUE
                           , lastval
@@ -385,7 +385,7 @@ my_elprice <- function(df
 ) {
   print(paste0("My el. price started"))
   #check for method
-  if (!method %in% c("static", "linear", "last_w_growth", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw", "selected_year" )) {stop("Unknown method for el. price calculation")}#endif
+  if (!method %in% c("static", "linear", "last_w_growth", "historical_w_growth", "random_walk_trend", "selected_year" )) {stop("Unknown method for el. price calculation")}#endif
   
   startdate <- my_check_date(startdate)
   startyear <- substring(startdate, 1,4) %>% as.integer()  #start_date %>% lubridate::floor_date(start_date %>% lubridate::ymd())
@@ -410,94 +410,11 @@ my_elprice <- function(df
     stop("Input dataframe probably wrong, expected 'datetime' and 'price' columns")
   }
   
-  # some calculation of average vals first
-  avg_actual_price <- df %>% group_by(month, day, hour) %>%
-    summarise(mean_price = mean(price, na.rm = TRUE),
-              median_price = median(price, na.rm = TRUE),
-              sd_price = sd(price, na.rm = TRUE), 
-              quantile_025 = quantile(price, probs = 0.025, na.rm = TRUE),
-              quantile_050 = quantile(price, probs = 0.05, na.rm = TRUE),
-              quantile_250 = quantile(price, probs = 0.25, na.rm = TRUE),
-              quantile_500 = quantile(price, probs = 0.5, na.rm = TRUE),
-              quantile_750 = quantile(price, probs = 0.75, na.rm = TRUE),
-              quantile_950 = quantile(price, probs = 0.95, na.rm = TRUE),
-              quantile_975 = quantile(price, probs = 0.975, na.rm = TRUE)
-    )
-  
+
   # SLT decomposition
   if (add_intraday_variability || add_intraweek_variability || method == "historical_w_growth") { 
-    
-  decomposed <- df %>% as_tsibble(index = datetime) %>% 
-    #filter(datetime<'2024-01-01') %>%
-    model(STL(price ~ trend() + season(period = "day") + season(period = 168) #+ season(period = "year")
-    )) %>%  #season is "day" because pattern repeats daily
-    components() %>% 
-    mutate( month = month(datetime) %>% as.integer()
-            , day = day(datetime) %>% as.integer()
-            , hour = hour(datetime) %>% as.integer()
-            , weekday = wday(datetime, week_start = 1))
-  
-  #decomposed %>% filter(datetime >='2020-01-01' & datetime <='2020-04-30')   %>% autoplot()
-  
-  
-  
-  # df %>% filter(year==2020) %>% as_tsibble(index = datetime) %>% 
-  #   model(STL(price ~ season(period = "day") + season(period = "month") + season(period = "year"))) %>% components() %>% autoplot()
-  # 
-  # df %>% filter(year==2020) %>% as_tsibble(index = datetime) %>% 
-  #   model(STL(price ~  season(period = "year"))) %>% components() %>% autoplot()
-  # 
-  # x1<- df %>% filter(year==2020) %>% as_tsibble(index = datetime) %>% 
-  #   model(STL(price ~  season(period = "day"))) %>% components() 
-  # x1 %>% filter(datetime <='2020-03-31') %>% autoplot()
-  # 
-  # x2<- df %>% filter(year==2020) %>% as_tsibble(index = datetime) %>% 
-  #   model(STL(price ~  season(period = "month"))) %>% components() 
-  # x2 %>% filter(datetime <='2020-03-31') %>% autoplot()
-  # x<- df %>% filter(year==2020) %>% as_tsibble(index = datetime) %>% 
-  #   model(STL(price ~  season(period = "month") + season(period = "day"))) %>% components() 
-  # x %>% filter(datetime <='2020-03-31') %>% autoplot()
-  # 
-  # x4 <- df %>% filter(year<=2017) %>% as_tsibble(index = datetime) %>% 
-  #   model(STL(price ~ season(period = "year"))) %>% components() 
-  # x4 %>% filter(datetime <='2020-03-31') %>% autoplot()
-  # 
-  # df %>% filter(year==2020) %>% filter(datetime <='2020-03-31') %>% mutate(date = as.Date(datetime)) %>% group_by(date) %>% summarize(price = mean(price,na.rm=TRUE)) %>%
-  # ggplot(aes(x=date, y=price)) +geom_line()
-  # 
-  
-  decomposed_agg <- decomposed %>% as_tibble() %>%
-    mutate(year = year(datetime) %>% as.integer()
-           , month = month(datetime) %>% as.integer()
-           , day = day(datetime) %>% as.integer()
-           , hour = hour(datetime) %>% as.integer()
-           , weekday = wday(datetime, week_start = 1)
-    ) %>%
-    group_by(month, hour, weekday) %>%
-    summarise(mean_season_day = mean(season_day, na.rm = TRUE)
-              , sd_season_day = sd(season_day, na.rm = TRUE)
-              , mean_season_168 = mean(season_168, na.rm = TRUE)
-              , sd_season_168 = sd(season_168, na.rm = TRUE)
-              , mean_trend = mean(trend, na.rm = TRUE)
-              , sd_trend = sd(trend, na.rm = TRUE)
-              , season_day_050 = quantile(season_day, probs = 0.05, na.rm = TRUE)
-              , season_day_250 = quantile(season_day, probs = 0.25, na.rm = TRUE)
-              , season_day_500 = quantile(season_day, probs = 0.5, na.rm = TRUE)
-              , season_day_750 = quantile(season_day, probs = 0.75, na.rm = TRUE)
-              , season_day_950 = quantile(season_day, probs = 0.95, na.rm = TRUE)
-              , season_week_050 = quantile(season_168, probs = 0.05, na.rm = TRUE)
-              , season_week_250 = quantile(season_168, probs = 0.25, na.rm = TRUE)
-              , season_week_500 = quantile(season_168, probs = 0.5, na.rm = TRUE)
-              , season_week_750 = quantile(season_168, probs = 0.75, na.rm = TRUE)
-              , season_week_950 = quantile(season_168, probs = 0.95, na.rm = TRUE)
-    )
-  
-  print("decomposed done")
-  
-  
-  mean_trend <- decomposed %>% as_tibble() %>% ungroup() %>% summarise(mean_trend = mean(trend, na.rm = TRUE)
-                                                                       , sd_trend = sd(trend, na.rm = TRUE))
-  }#end decomposing
+    decomposed_agg <- my_elprice_auxDecompose()
+  }#end loading decomposed data
   
   # create future timestamps
   future_timestamps <- seq( startdate, by = "1 hour", length.out = years * 24*365.25 %>% round(0) -1)
@@ -575,68 +492,71 @@ my_elprice <- function(df
       rename(price_method = price)
     print("future_prices_step2 - selected_year done")
     rm(future_prices_step0)
-  } else if (method %in% c("random_walk", "random_walk_trend", "mean_reverting_rw")) {
+  } else if (method %in% c("random_walk_trend")) {
+    # some calculation of average vals first - not useful, random walk can be random
+    # avg_actual_price <- df %>% 
+    #   mutate(weekday = lubridate::wday(date, week_start = getOption("lubridate.week.start", 1))) %>%
+    #   #ignore days with 24hrs (days when switching from CEST to CET)
+    #   filter(hour < 24) %>%   
+    #   group_by(month, weekday, hour) %>%
+    #   summarise(mean_price = mean(price, na.rm = TRUE),
+    #             median_price = median(price, na.rm = TRUE),
+    #             sd_price = sd(price, na.rm = TRUE), 
+    #             quantile_025 = quantile(price, probs = 0.025, na.rm = TRUE),
+    #             quantile_050 = quantile(price, probs = 0.05, na.rm = TRUE),
+    #             quantile_250 = quantile(price, probs = 0.25, na.rm = TRUE),
+    #             quantile_500 = quantile(price, probs = 0.5, na.rm = TRUE),
+    #             quantile_750 = quantile(price, probs = 0.75, na.rm = TRUE),
+    #             quantile_950 = quantile(price, probs = 0.95, na.rm = TRUE),
+    #             quantile_975 = quantile(price, probs = 0.975, na.rm = TRUE),
+    #             n_obs = n()
+    #   )
+    # #create innovations for random walk, using sd from hourly prices from observations
+    # future_prices_step1 <- future_prices_step0 %>%
+    #   left_join(avg_actual_price %>% select(month, weekday, hour, sd_price, mean_price, quantile_250, quantile_750)
+    #             , by = c("month" = "month", "weekday" = "weekday", "hour" = "hour") ) %>%
+    #   mutate(
+    #     #random walk step (innovation) is kept as an extra column for random walk method
+    #     innovation = runif(n(), min = quantile_250, max = quantile_750) 
+    #   )
     
-    # Compute historical mean price
-    mu <- mean(df$price, na.rm = TRUE)
+    #df %>% summarise(mean_price = mean(price, na.rm = TRUE)
+    #, sd_price = sd(price, na.rm = TRUE) ) 
+    #hist_sd <- sd(df$price, na.rm = TRUE)
     
-    #create innovations for random walk, using sd from hourly prices from observations
-    future_prices_step1 <- future_prices_step0 %>%
-      left_join(avg_actual_price, by = c("month" = "month", "day" = "day", "hour" = "hour") ) %>%
+    #load C code
+    sourceCpp("R_functions/simulate_rw_prices.cpp") 
+    
+    # volatility of returns
+    hist_vol <- sd(diff(df$price), na.rm = TRUE)
+    dt <- 1/(365*24)
+    
+    # expected trend path
+    future_prices_step0 <- future_prices_step0 %>%
       mutate(
-        #note: the random walk step (innovation) is kept as an extra column for random walk methods
-        innovation = rnorm(n(), mean = 0, sd = sd_price * 0.5),  # sd_price scaled down to avoid large fluctuations
-      ) %>%
-      #drop unneeded cols
-      select(-(mean_price:quantile_975))
-     print("future_prices_step1 - rand walk done")
-     
-    if (method %in% c("random_walk")) {
-      future_prices_step2 <- future_prices_step1 %>% 
-        mutate(
-          price_method =  lastval + cumsum(innovation) 
-        )
-      print("future_prices_step2 - rand walk done")
-      rm(future_prices_step0)
-      rm(future_prices_step1)
-    } else if (method %in% c("random_walk_trend")) {
+        years_from_start = as.numeric(difftime(datetime, startdate, units = "days"))/365.25,
+        expected_trend = lastval * (1 + annual_growth)^years_from_start
+      )
       
-      drift <- log(1 + annual_growth) / (365 * 24)  
-      
-      # adjusts how large changes
-      sigma <- 0.3 / sqrt(365 * 24)
-      
-      n_periods <- nrow(future_prices_step0)
-      log_price <- numeric(n_periods)
-      log_price[1] <- log(lastval)
-      
-      # log-normal random walk with trend
-      for (i in 2:n_periods) {
-        # do a random step with trend
-        log_price[i] <- log_price[i-1] + drift + rnorm(1, 0, sigma)
-        
-        # do a reversion every month to prevent runaway trends
-        if (i %% 168*4 == 0) {
-          expected <- log(lastval) + drift * i
-          log_price[i] <- 0.95 * log_price[i] + 0.05 * expected
-        }
-      }
+    # call via Cpp function to do the loop
+    price_path <- simulate_rw_prices(
+      lastval = lastval,
+      expected = future_prices_step0$expected_trend,
+      theta = theta,
+      hist_vol = sd(diff(df$price), na.rm = TRUE),
+      window = 168
+    )
     
-      price_path <- exp(log_price)
-      
-      # adjust the most extreme values
-      q <- quantile(price_path, c(0.001, 0.999))
-      price_path <- pmin(pmax(price_path, q[1]), q[2])
-      
-      future_prices_step2 <- future_prices_step0 %>%
-        mutate(price_method = price_path)
-      
-      print("future_prices_step2 - rand walk done")
-      rm(future_prices_step0)
-      rm(future_prices_step1)
-    } else {
-      stop("Unknown method, my_elprice() is stopping")
-    }
+    future_prices_step2 <- future_prices_step0 %>%
+      mutate(price_method = price_path) %>%
+     select(-years_from_start, -expected_trend)
+    
+    # future_prices_step2 %>% ggplot(aes(x=price_method)) +geom_density()
+    
+    print("future_prices_step2 - rand walk done")
+    rm(future_prices_step0)
+    rm(future_prices_step1)
+     
   }#end for trend methods
   gc(full = TRUE)
   # Generate future prices, add random noise if desired
@@ -767,6 +687,90 @@ my_elprice <- function(df
   
   return(output)
 }#endfunction my_elprice
+
+my_elprice_auxDecompose <- function(path_decomposed = "_static_data/elprices_Czechia_decomposed.Rds" ) {
+  if (file.exists(path_decomposed) == FALSE) {
+    df <- my_data_read_elprice_observed_data()
+    
+    decomposed <- df %>% as_tsibble(index = datetime) %>% 
+      #filter(datetime<'2024-01-01') %>%
+      model(STL(price ~ trend() + season(period = "day") + season(period = 168) #+ season(period = "year")
+      )) %>%  #season is "day" because pattern repeats daily
+      components() %>% 
+      mutate( month = month(datetime) %>% as.integer()
+              , day = day(datetime) %>% as.integer()
+              , hour = hour(datetime) %>% as.integer()
+              , weekday = wday(datetime, week_start = 1))
+    
+    #decomposed %>% filter(datetime >='2020-01-01' & datetime <='2020-04-30')   %>% autoplot()
+    
+    
+    # df %>% filter(year==2020) %>% as_tsibble(index = datetime) %>% 
+    #   model(STL(price ~ season(period = "day") + season(period = "month") + season(period = "year"))) %>% components() %>% autoplot()
+    # 
+    # df %>% filter(year==2020) %>% as_tsibble(index = datetime) %>% 
+    #   model(STL(price ~  season(period = "year"))) %>% components() %>% autoplot()
+    # 
+    # x1<- df %>% filter(year==2020) %>% as_tsibble(index = datetime) %>% 
+    #   model(STL(price ~  season(period = "day"))) %>% components() 
+    # x1 %>% filter(datetime <='2020-03-31') %>% autoplot()
+    # 
+    # x2<- df %>% filter(year==2020) %>% as_tsibble(index = datetime) %>% 
+    #   model(STL(price ~  season(period = "month"))) %>% components() 
+    # x2 %>% filter(datetime <='2020-03-31') %>% autoplot()
+    # x<- df %>% filter(year==2020) %>% as_tsibble(index = datetime) %>% 
+    #   model(STL(price ~  season(period = "month") + season(period = "day"))) %>% components() 
+    # x %>% filter(datetime <='2020-03-31') %>% autoplot()
+    # 
+    # x4 <- df %>% filter(year<=2017) %>% as_tsibble(index = datetime) %>% 
+    #   model(STL(price ~ season(period = "year"))) %>% components() 
+    # x4 %>% filter(datetime <='2020-03-31') %>% autoplot()
+    # 
+    # df %>% filter(year==2020) %>% filter(datetime <='2020-03-31') %>% mutate(date = as.Date(datetime)) %>% group_by(date) %>% summarize(price = mean(price,na.rm=TRUE)) %>%
+    # ggplot(aes(x=date, y=price)) +geom_line()
+    # 
+    
+    decomposed_agg <- decomposed %>% as_tibble() %>%
+      mutate(year = year(datetime) %>% as.integer()
+             , month = month(datetime) %>% as.integer()
+             , day = day(datetime) %>% as.integer()
+             , hour = hour(datetime) %>% as.integer()
+             , weekday = wday(datetime, week_start = 1)
+      ) %>%
+      group_by(month, hour, weekday) %>%
+      summarise(mean_season_day = mean(season_day, na.rm = TRUE)
+                , sd_season_day = sd(season_day, na.rm = TRUE)
+                , mean_season_168 = mean(season_168, na.rm = TRUE)
+                , sd_season_168 = sd(season_168, na.rm = TRUE)
+                , mean_trend = mean(trend, na.rm = TRUE)
+                , sd_trend = sd(trend, na.rm = TRUE)
+                , season_day_050 = quantile(season_day, probs = 0.05, na.rm = TRUE)
+                , season_day_250 = quantile(season_day, probs = 0.25, na.rm = TRUE)
+                , season_day_500 = quantile(season_day, probs = 0.5, na.rm = TRUE)
+                , season_day_750 = quantile(season_day, probs = 0.75, na.rm = TRUE)
+                , season_day_950 = quantile(season_day, probs = 0.95, na.rm = TRUE)
+                , season_week_050 = quantile(season_168, probs = 0.05, na.rm = TRUE)
+                , season_week_250 = quantile(season_168, probs = 0.25, na.rm = TRUE)
+                , season_week_500 = quantile(season_168, probs = 0.5, na.rm = TRUE)
+                , season_week_750 = quantile(season_168, probs = 0.75, na.rm = TRUE)
+                , season_week_950 = quantile(season_168, probs = 0.95, na.rm = TRUE)
+      )
+    
+    print("decomposed done")
+    
+    
+    # mean_trend <- decomposed %>% as_tibble() %>% ungroup() %>% summarise(mean_trend = mean(trend, na.rm = TRUE)
+    #                                                                      , sd_trend = sd(trend, na.rm = TRUE))
+    
+    #save to file
+    saveRDS(decomposed_agg, file = path_decomposed)
+    print("decomposed done")
+    return(decomposed_agg)
+  } else {
+    decomposed_agg <- readRDS(path_decomposed)
+    return(decomposed_agg)
+  }#endif 
+}#endfunction my_elprice_auxDecompose
 
 
 
