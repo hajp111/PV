@@ -660,7 +660,7 @@ tmp1 %>%
 
 
 #### show projected price 
-#"static", "linear", "last_w_growth", "historical_w_growth", "random_walk", "random_walk_trend", "mean_reverting_rw", "selected_year" 
+#"static", "linear", "last_w_growth", "historical_w_growth", "random_walk_trend", "selected_year" 
 elprice1_linear <- my_elprice(df = my_data_read_elprice_observed_data()
                       , startdate = '2025-01-01'
                       , years = 20

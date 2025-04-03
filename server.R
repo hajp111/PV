@@ -11,14 +11,6 @@ server <- function(input, output, session) {
     #### hide/show elements at start
     print("hiding calculate_financials button")
     shinyjs::hide("calculate_financials")
-    # # hide the results tabs 
-    # hideTab(inputId = "mainPanelTabs", target = "chartsTab")
-    # hideTab(inputId = "mainPanelTabs", target = "resultsTab")
-    # tabs_visible <- reactiveValues(
-    #   charts = FALSE,
-    #   results = FALSE
-    # )
-    
 
     # observe language changes
     lang_reactive <- reactiveVal("en")
@@ -78,9 +70,7 @@ server <- function(input, output, session) {
         "Historical with Growth" = "historical_w_growth",
         "Static" = "static",
         "Time Series Model" = "linear",
-        "Random Walk" = "random_walk",
         "Random Walk with Trend" = "random_walk_trend",
-        "Mean Reverting Random Walk" = "mean_reverting_rw",
         "Repeat Selected Year" = "selected_year"
       ) %>% 
         setNames(., sapply(names(.), function(x) i18n$t(x)))
@@ -141,17 +131,17 @@ server <- function(input, output, session) {
                            helpText(i18n$t("Adds random variation to PV output (0.2 means ±20% variation)"))
                   ),
                   
+                  tabPanel(i18n$t("Household"), value = "householdTab",
+                           numericInput("HH_annual_consumption", i18n$t("Annual Consumption (MWh)"), 3, min = 0),
+                           numericInput("HH_add_cons_noise", i18n$t("Consumption Noise Multiplier"), 0.8, min = 0, step = 0.1),
+                           helpText(i18n$t("Adds random variation to consumption (0.2 means ±20% variation)"))
+                  ),
+                  
                   tabPanel(i18n$t("Financials"), value = "financialsTab",
                            numericInput("installation_cost", i18n$t("Installation Cost (CZK)"), 200000, min = 0),
                            numericInput("annual_maintenance_cost", i18n$t("Annual Maintenance (CZK)"), 4000, min = 0),
                            numericInput("discount_rate", i18n$t("Discount Rate"), 0.03, min = 0, max = 1, step = 0.01),
                            helpText(i18n$t("Annual discount rate for NPV calculations (decimal, e.g., 0.03 = 3%)"))
-                  ),
-                  
-                  tabPanel(i18n$t("Household"), value = "householdTab",
-                           numericInput("HH_annual_consumption", i18n$t("Annual Consumption (MWh)"), 3, min = 0),
-                           numericInput("HH_add_cons_noise", i18n$t("Consumption Noise Multiplier"), 0.8, min = 0, step = 0.1),
-                           helpText(i18n$t("Adds random variation to consumption (0.2 means ±20% variation)"))
                   ),
                   
                   tabPanel(i18n$t("Electricity Prices"), value = "elpriceTab",
@@ -165,7 +155,7 @@ server <- function(input, output, session) {
                            helpText(i18n$t("Adds random variation to el. price (0.2 means ±20% variation)")),
                            
                            conditionalPanel(
-                             condition = "input.elprice_method == 'last_w_growth'",
+                             condition = "['last_w_growth', 'random_walk_trend'].includes(input.elprice_method)",
                              numericInput("elprice_lastval", i18n$t("Provided El. Price (CZK/kWh) to apply"), 3.5, step = 0.1),
                              helpText(i18n$t("Electricity price to apply the growth rate to"))
                            ),
@@ -212,15 +202,15 @@ server <- function(input, output, session) {
                              helpText(i18n$t("Annual grid cost growth rate (decimal, e.g., 0.04 = 4%)"))
                            )
                   ),
-                  
+                  if (calculations_done()) {
                   tabPanel(i18n$t("Observe Input Data Charts"), value = "chartsTab",
                            plotOutput("elconsPlot"),
                            plotOutput("solarPlot"),
                            plotOutput("gridCostPlot"),
                            plotOutput("feedInPlot"),
                            plotOutput("elpricePlot")
-                  ),
-                  
+                  )},
+                  if (calculations_done()) {
                   tabPanel(i18n$t("Results"), value = "resultsTab",
                            h3(i18n$t("Financial Summary")),
                            tableOutput("summary_table"),
@@ -232,6 +222,7 @@ server <- function(input, output, session) {
                            downloadButton("download_hourly", i18n$t("Download Hourly Data (CSV)"), class = "btn btn-success"),
                            downloadButton("download_params", i18n$t("Download Input Parameters (CSV)"), class = "btn btn-success")
                   )
+                  }#endif calculations_done()
       )#end tabsetPanel
     })#end translated_tabs
     
@@ -304,7 +295,7 @@ server <- function(input, output, session) {
       print(paste("observe final_results: final_results is", ifelse(is.null(final_results()), "NULL", "calculated"))) 
       if (!is.null(final_results())) {
         updateTabsetPanel(session, "mainPanelTabs", selected = "resultsTab")
-      }
+      } 
     })
     
     
@@ -446,15 +437,32 @@ server <- function(input, output, session) {
             #hide load data button
             shinyjs::hide("load_data")
             print("hiding load data button")
-            #hide parameters affecting PV and HH cons
-            removeTab("mainPanelTabs", target = "batteryTab")
-            removeTab("mainPanelTabs", target = "pvTab")
-            removeTab("mainPanelTabs", target = "householdTab")
-            #disable inputs that shouldn't be editable anymore
+            
+            #disable inputs affecting inputs (dates, PV and HH cons) that shouldn't be editable anymore
             shinyjs::disable("system_lifetime")
             shinyjs::disable("lat")
             shinyjs::disable("lon")
             shinyjs::disable("start_date")
+            shinyjs::disable("selected_language")
+            
+            shinyjs::disable("battery_capacity_kwh")
+            shinyjs::disable("battery_charge_efficiency")
+            shinyjs::disable("battery_discharge_efficiency")
+            shinyjs::disable("battery_initial_soc")
+            shinyjs::disable("battery_min_soc")
+            shinyjs::disable("battery_max_soc")
+            shinyjs::disable("battery_degradation")
+
+            shinyjs::disable("PV_peakpower")
+            shinyjs::disable("PV_system_loss")
+            shinyjs::disable("PV_angle")
+            shinyjs::disable("PV_aspect")
+            shinyjs::disable("PV_degradation")
+            shinyjs::disable("PV_system_own_consumption")
+            shinyjs::disable("PV_add_PV_noise")
+
+            shinyjs::disable("HH_annual_consumption")
+            shinyjs::disable("HH_add_cons_noise")
             
             # show button for 2nd step
             shinyjs::show("calculate_financials")
@@ -607,16 +615,49 @@ server <- function(input, output, session) {
           calculations_done(TRUE)
           showNotification(i18n$t("Financial calculations complete"), type = "message")
             
-            
         }, error = function(e) {
             showNotification(paste(i18n$t("Error in financial calculations:"), e$message), type = "error", duration = 15)
         }, finally = {
             
             #showTab(inputId = "mainPanelTabs", target = "chartsTab")
             #showTab(inputId = "mainPanelTabs", target = "resultsTab")
+            # shinyjs::runjs("
+            #   $('#mainPanelTabs li a[data-value=\"chartsTab\"]').parent().show();
+            #   $('#mainPanelTabs li a[data-value=\"resultsTab\"]').parent().show();
+            #   ")
+            
             removeModal()
             print("step2 done")
         })
+    })
+    
+    observeEvent(calculations_done(), {
+      message("calculations_done() is: ", calculations_done())
+      if (calculations_done()) {
+        shinyjs::delay(100, { # Delay by 100 milliseconds (adjust as needed)
+          shinyjs::disable("HH_annual_consumption")
+          shinyjs::disable("HH_add_cons_noise")
+          shinyjs::disable("PV_peakpower")
+          shinyjs::disable("PV_system_loss")
+          shinyjs::disable("PV_angle")
+          shinyjs::disable("PV_aspect")
+          shinyjs::disable("PV_degradation")
+          shinyjs::disable("PV_system_own_consumption")
+          shinyjs::disable("PV_add_PV_noise")
+          shinyjs::disable("battery_capacity_kwh")
+          shinyjs::disable("battery_charge_efficiency")
+          shinyjs::disable("battery_discharge_efficiency")
+          shinyjs::disable("battery_initial_soc")
+          shinyjs::disable("battery_min_soc")
+          shinyjs::disable("battery_max_soc")
+          shinyjs::disable("battery_degradation")
+          shinyjs::disable("system_lifetime")
+          shinyjs::disable("lat")
+          shinyjs::disable("lon")
+          shinyjs::disable("start_date")
+          shinyjs::disable("selected_language")
+        })
+      }
     })
     
     #### render summary table in results

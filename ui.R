@@ -4,18 +4,20 @@ library(shiny)
 library(leaflet)
 library(shinythemes)
 library(plotly)
+library(shinyjs)
 library(shiny.i18n)
 
 i18n <- Translator$new(translation_json_path = "translations.json")
-
+shinyjs::useShinyjs()
 ui <- fluidPage(
-    
+   
     tags$footer(style = "position: fixed; 
                 bottom: 0; 
                 width: 100%; 
                 padding: 10px; 
+                padding-right: 40px;
                 background-color: #f0f0f0; 
-                text-align: left; 
+                text-align: right; 
                 font-size: 0.8em; 
                 color: #808080;"
                 , "Created by Pavel HAJKO"
