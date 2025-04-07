@@ -98,107 +98,110 @@ server <- function(input, output, session) {
       req(lang_reactive())
       tabsetPanel(id = "mainPanelTabs",
                   tabPanel(i18n$t("Battery Parameters"), value = "batteryTab",
-                           numericInput("battery_capacity_kwh", i18n$t("Capacity (kWh)"), 10, min = 0),
-                           numericInput("battery_charge_efficiency", i18n$t("Charge Efficiency"), 0.95, min = 0, max = 1, step = 0.01),
+                           numericInput("battery_capacity_kwh", i18n$t("Capacity (kWh)"), min = 0, value = if (!is.null(system_params()$battery_capacity_kwh)) system_params()$battery_capacity_kwh else 10),
+                           numericInput("battery_charge_efficiency", i18n$t("Charge Efficiency"), min = 0, max = 1, step = 0.01, value = if (!is.null(system_params()$battery_charge_efficiency)) system_params()$battery_charge_efficiency else 0.95),
                            helpText(i18n$t("Value between 0 and 1. When charging with E kWh, stored energy is E × efficiency")),
-                           numericInput("battery_discharge_efficiency", i18n$t("Discharge Efficiency"), 0.95, min = 0, max = 1, step = 0.01),
+                           numericInput("battery_discharge_efficiency", i18n$t("Discharge Efficiency"), min = 0, max = 1, step = 0.01, value = if (!is.null(system_params()$battery_discharge_efficiency)) system_params()$battery_discharge_efficiency else 0.95),
                            helpText(i18n$t("Value between 0 and 1. When discharging E kWh, released energy is E × efficiency")),
-                           numericInput("battery_initial_soc", i18n$t("Initial SOC (%)"), 20, min = 0, max = 100, step = 1),
-                           numericInput("battery_min_soc", i18n$t("Min SOC (%)"), 10, min = 0, max = 100, step = 1),
+                           numericInput("battery_initial_soc", i18n$t("Initial SOC (%)"), min = 0, max = 100, step = 1, value = if (!is.null(system_params()$battery_initial_soc)) system_params()$battery_initial_soc*100 else 20),
+                           numericInput("battery_min_soc", i18n$t("Min SOC (%)"), min = 0, max = 100, step = 1, value = if (!is.null(system_params()$battery_min_soc)) system_params()$battery_min_soc*100 else 10),
                            helpText(i18n$t("Minimum state of charge to avoid battery damage")),
-                           numericInput("battery_max_soc", i18n$t("Max SOC (%)"), 100, min = 0, max = 100, step = 1),
+                           numericInput("battery_max_soc", i18n$t("Max SOC (%)"), min = 0, max = 100, step = 1, value = if (!is.null(system_params()$battery_max_soc)) system_params()$battery_max_soc*100 else 100),
                            helpText(i18n$t("Maximum state of charge (100% = full capacity)")),
                            #degradation of 1.1% annualy corresponds to decrease to 80% in 20 years
-                           numericInput("battery_degradation", i18n$t("Degradation Rate/year"), 0.01, min = 0, max = 1, step = 0.01),
+                           numericInput("battery_degradation", i18n$t("Degradation Rate/year"), min = 0, max = 1, step = 0.01, value = if (!is.null(system_params()$battery_degradation)) system_params()$battery_degradation else 0.01),
                            helpText(i18n$t("Annual battery capacity degradation rate (decimal, e.g., 0.01 = 1%)")),
                            helpText(i18n$t("Degredation to 80% in 20 years corresponds to about 1.1% annual degredation rate"))
                   ),
                   
                   tabPanel(i18n$t("PV Parameters"), value = "pvTab",
-                           numericInput("PV_peakpower", i18n$t("Peak Power (kWp)"), 4.5, min = 0, max = 20),
-                           numericInput("PV_system_loss", i18n$t("System Loss (%)"), 14, min = 0, max = 100),
+                           numericInput("PV_peakpower", i18n$t("Peak Power (kWp)"), min = 0, step = 0.1, max = 20, value = if (!is.null(system_params()$PV_peakpower)) system_params()$PV_peakpower else 4.5),
+                           numericInput("PV_system_loss", i18n$t("System Loss (%)"), min = 0, max = 100, value = if (!is.null(system_params()$PV_system_loss)) system_params()$PV_system_loss else 14),
                            helpText(i18n$t("Overall system losses in percent")),
-                           numericInput("PV_angle", i18n$t("Inclination Angle"), 30, min = 0, max = 90),
+                           numericInput("PV_angle", i18n$t("Inclination Angle"),  min = 0, max = 90, value = if (!is.null(system_params()$PV_angle)) system_params()$PV_angle else 30),
                            helpText(i18n$t("Panel inclination (0° = horizontal, 90° = vertical)")),
-                           numericInput("PV_aspect", i18n$t("Azimuth Angle"), 0, min = -180, max = 180),
+                           numericInput("PV_aspect", i18n$t("Azimuth Angle"), min = -180, max = 180, value = if (!is.null(system_params()$PV_aspect)) system_params()$PV_aspect else 0),
                            helpText(i18n$t("Panel orientation (0° = South, 90° = West, -90° = East)")),
-                           numericInput("PV_degradation", i18n$t("Degradation Rate/year"), 0.01, min = 0, max = 1, step = 0.01),
+                           numericInput("PV_degradation", i18n$t("Degradation Rate/year"),  min = 0, max = 1, step = 0.01, value = if (!is.null(system_params()$PV_degradation)) system_params()$PV_degradation else 0.01),
                            helpText(i18n$t("Annual PV panel degradation rate (decimal, e.g., 0.01 = 1%)")),
                            helpText(i18n$t("Degredation to 80% in 20 years corresponds to about 1.1% annual degredation rate")),
-                           numericInput("PV_system_own_consumption", i18n$t("System Consumption (kWh/h)"), 0.03, min = 0),
+                           numericInput("PV_system_own_consumption", i18n$t("System Consumption (kWh/h)"), min = 0, step = 0.01, value = if (!is.null(system_params()$PV_system_own_consumption)) system_params()$PV_system_own_consumption else 0.03),
                            helpText(i18n$t("Constant energy consumption of the PV system (inverter, etc.)")),
-                           numericInput("PV_add_PV_noise", i18n$t("PV Noise Multiplier"), 0.0, min = 0),
+                           numericInput("PV_add_PV_noise", i18n$t("PV Noise Multiplier"), min = 0, step = 0.1, value = if (!is.null(system_params()$PV_add_PV_noise)) system_params()$PV_add_PV_noise else 0.0),
                            helpText(i18n$t("Adds random variation to PV output (0.2 means ±20% variation)"))
                   ),
                   
                   tabPanel(i18n$t("Household"), value = "householdTab",
-                           numericInput("HH_annual_consumption", i18n$t("Annual Consumption (MWh)"), 3, min = 0),
-                           numericInput("HH_add_cons_noise", i18n$t("Consumption Noise Multiplier"), 0.8, min = 0, step = 0.1),
+                           numericInput("HH_annual_consumption", i18n$t("Annual Consumption (MWh)"), min = 0, step = 0.1, value = if (!is.null(system_params()$HH_annual_consumption)) system_params()$HH_annual_consumption else 3),
+                           numericInput("HH_add_cons_noise", i18n$t("Consumption Noise Multiplier"), min = 0, step = 0.1, value = if (!is.null(system_params()$HH_add_cons_noise)) system_params()$HH_add_cons_noise else 0.8),
                            helpText(i18n$t("Adds random variation to consumption (0.2 means ±20% variation)"))
                   ),
                   
                   tabPanel(i18n$t("Financials"), value = "financialsTab",
-                           numericInput("installation_cost", i18n$t("Installation Cost (CZK)"), 200000, min = 0),
-                           numericInput("annual_maintenance_cost", i18n$t("Annual Maintenance (CZK)"), 4000, min = 0),
-                           numericInput("discount_rate", i18n$t("Discount Rate"), 0.03, min = 0, max = 1, step = 0.01),
-                           helpText(i18n$t("Annual discount rate for NPV calculations (decimal, e.g., 0.03 = 3%)"))
+                           numericInput("installation_cost", i18n$t("Installation Cost (CZK)"), min = 0, value = if (!is.null(system_params()$installation_cost)) system_params()$installation_cost else 220000),
+                           numericInput("annual_maintenance_cost", i18n$t("Annual Maintenance (CZK)"), min = 0, value = if (!is.null(system_params()$annual_maintenance_cost)) system_params()$annual_maintenance_cost else 4000),
+                           numericInput("discount_rate", i18n$t("Discount Rate"), min = 0, max = 100, step = 0.1, value = if (!is.null(system_params()$discount_rate)) system_params()$discount_rate*100 else 3),
+                           helpText(i18n$t("Annual discount rate for NPV calculations (e.g. 3.5 means 3.5 %)"))
                   ),
                   
                   tabPanel(i18n$t("Electricity Prices"), value = "elpriceTab",
                            selectInput(
-                             "elprice_method",
+                             inputId = "elprice_method",
                              i18n$t("Price Method"),
-                             choices = elprice_choices_list()
+                             choices = elprice_choices_list(),
+                             selected = if (!is.null(system_params()$elprice_method)) system_params()$elprice_method else "selected_year"
                            ),
                            helpText(i18n$t("Method for electricity price projection")),
-                           numericInput("add_random_noise", i18n$t("Add Random Noise to Data"), 0.00, step = 0.05, min = 0, max = 1),
+                           numericInput(inputId = "add_random_noise", i18n$t("Add Random Noise to Data"), step = 0.05, min = 0, max = 1, value = if (!is.null(system_params()$add_random_noise)) system_params()$add_random_noise else 0.0),
                            helpText(i18n$t("Adds random variation to el. price (0.2 means ±20% variation)")),
                            
                            conditionalPanel(
                              condition = "['last_w_growth', 'random_walk_trend'].includes(input.elprice_method)",
-                             numericInput("elprice_lastval", i18n$t("Provided El. Price (CZK/kWh) to apply"), 3.5, step = 0.1),
+                             numericInput(inputId = "elprice_lastval", i18n$t("Provided El. Price (CZK/kWh) to apply"), step = 0.1, value = if (!is.null(system_params()$elprice_lastval)) system_params()$elprice_lastval else 3.5),
                              helpText(i18n$t("Electricity price to apply the growth rate to"))
                            ),
                            conditionalPanel(
                              condition = "input.elprice_method == 'selected_year'",
-                             selectInput("selected_year", i18n$t("Repeat Year from Observations"), choices = c(2016:2023), selected = 2023)
+                             selectInput(inputId = "selected_year", i18n$t("Repeat Year from Observations"), choices = c(2016:2023), selected = if (!is.null(system_params()$selected_year)) system_params()$selected_year else 2023)
                            ),
                            conditionalPanel(
                              condition = "['last_w_growth', 'historical_w_growth', 'random_walk_trend'].includes(input.elprice_method)",
-                             numericInput("elprice_annual_growth", i18n$t("Annual Growth"), 0.05, step = 0.01),
+                             numericInput(inputId = "elprice_annual_growth", i18n$t("Annual Growth"), step = 0.01, value = if (!is.null(system_params()$elprice_annual_growth)) system_params()$elprice_annual_growth else 0.05),
                              helpText(i18n$t("Annual price growth rate (decimal, e.g., 0.05 = 5%)"))
                            ),
                            
-                           checkboxInput("elprice_add_intraday_variability", i18n$t("Intraday Variability"), TRUE),
+                           checkboxInput(inputId = "elprice_add_intraday_variability", i18n$t("Intraday Variability"), value = if (!is.null(system_params()$elprice_add_intraday_variability)) system_params()$elprice_add_intraday_variability else TRUE),
                            helpText(i18n$t("Add daily price patterns")),
-                           checkboxInput("elprice_add_intraweek_variability", i18n$t("Intraweek Variability"), TRUE),
+                           checkboxInput(inputId = "elprice_add_intraweek_variability", i18n$t("Intraweek Variability"), value = if (!is.null(system_params()$elprice_add_intraweek_variability)) system_params()$elprice_add_intraweek_variability else TRUE),
                            helpText(i18n$t("Add weekday price patterns"))
                   ),
                   
                   tabPanel(i18n$t("Feed-in Tariff"), value = "feedinTab",
-                           selectInput("feedin_method", i18n$t("Method"),
-                                       choices = feedin_choices_list()
+                           selectInput(inputId = "feedin_method", i18n$t("Method"),
+                                       choices = feedin_choices_list(),
+                                       selected = if (!is.null(system_params()$feedin_method)) system_params()$feedin_method else "last_w_growth"
                            ),
-                           numericInput("feedin_lastval", i18n$t("Provided Value (CZK/kWh)"), 1.1, min = 0),
-                           numericInput("feedin_annual_growth", i18n$t("Annual Growth"), -0.1, step = 0.01),
+                           numericInput(inputId = "feedin_lastval", i18n$t("Provided Value (CZK/kWh)"), min = 0, step = 0.1, value = if (!is.null(system_params()$feedin_lastval)) system_params()$feedin_lastval else 1.1),
+                           numericInput(inputId = "feedin_annual_growth", i18n$t("Annual Growth"), step = 0.01, value = if (!is.null(system_params()$feedin_annual_growth)) system_params()$feedin_annual_growth else -0.1),
                            helpText(i18n$t("Annual feed-in tariff growth rate (decimal, e.g., 0.01 = 1%)"))
                   ),
                   
                   tabPanel(i18n$t("Grid Costs"), value = "gridcostTab",
                            
                            
-                           selectInput("gridcost_method", i18n$t("Method"),
-                                       choices = gridcost_choices_list()
+                           selectInput(inputId = "gridcost_method", i18n$t("Method"),
+                                       choices = gridcost_choices_list(),
+                                       selected = if (!is.null(system_params()$gridcost_method)) system_params()$gridcost_method else "last_w_growth"
                            ),
                            conditionalPanel(
                              condition = "input.gridcost_method == 'last_w_growth'",
-                             numericInput("gridcost_lastval", i18n$t("Provided Grid Cost (CZK/kWh) to apply as initial observation"), 2.8, step = 0.1),
+                             numericInput("gridcost_lastval", i18n$t("Provided Grid Cost (CZK/kWh) to apply as initial observation"), step = 0.1, value = if (!is.null(system_params()$gridcost_lastval)) system_params()$gridcost_lastval else 2.8),
                              helpText(i18n$t("Grid cost to apply the growth rate to (in CZK/kWh)"))
                            ),
                            
                            conditionalPanel(
                              condition = "['last_w_growth', 'historical_w_growth'].includes(input.gridcost_method)",
-                             numericInput("gridcost_annual_growth", i18n$t("Annual Growth"), 0.02, step = 0.01),
+                             numericInput("gridcost_annual_growth", i18n$t("Annual Growth"), step = 0.01, value = if (!is.null(system_params()$gridcost_annual_growth)) system_params()$gridcost_annual_growth else 0.02),
                              helpText(i18n$t("Annual grid cost growth rate (decimal, e.g., 0.04 = 4%)"))
                            )
                   ),
@@ -290,6 +293,36 @@ server <- function(input, output, session) {
       }#endif
     })
     
+    # battery capacity
+    observeEvent(input$battery_capacity_kwh, {
+      if (input$battery_capacity_kwh < 0) {
+        updateNumericInput(session, "battery_capacity_kwh", value = 0) 
+        showNotification(i18n$t("Battery capacity must be non-negative. Value reset to 0."), type = "warning") 
+      }#endif
+    })
+    # PV capacity
+    observeEvent(input$PV_peakpower, {
+      if (input$PV_peakpower < 0) {
+        updateNumericInput(session, "PV_peakpower", value = 1) 
+        showNotification(i18n$t("PV power must be non-negative. Value reset to 1."), type = "warning") 
+      }#endif
+    })
+    # HH cons
+    observeEvent(input$HH_annual_consumption, {
+      if (input$HH_annual_consumption < 0) {
+        updateNumericInput(session, "HH_annual_consumption", value = 1) 
+        showNotification(i18n$t("Household consumption must be non-negative. Value reset to 1."), type = "warning") 
+      }#endif
+    })
+    # installation cost
+    observeEvent(input$installation_cost, {
+      if (input$installation_cost < 0) {
+        updateNumericInput(session, "installation_cost", value = 1) 
+        showNotification(i18n$t("Installation cost must be non-negative. Value reset to 0."), type = "warning") 
+      }#endif
+    })
+    
+    
     #### navigate to Results tab
     observe({
       print(paste("observe final_results: final_results is", ifelse(is.null(final_results()), "NULL", "calculated"))) 
@@ -301,7 +334,7 @@ server <- function(input, output, session) {
     
     #### logic for the first button - Load Energy Data
     observeEvent(input$load_data, {
-        #showModal(modalDialog(i18n$t("Loading energy data..."), footer = NULL))
+        #showModal(modalDialog(i18n$t("Estimating energy data..."), footer = NULL))
         
       # valid range for system lifetime
       min_val <- 1
@@ -352,7 +385,7 @@ server <- function(input, output, session) {
                 
                 # Financial parameters
                 installation_cost = input$installation_cost,
-                discount_rate = input$discount_rate,
+                discount_rate = input$discount_rate/ 100, # Convert from percentage to decimal,
                 annual_maintenance_cost = input$annual_maintenance_cost,
                 
                 # Date range
@@ -390,7 +423,7 @@ server <- function(input, output, session) {
             print("sys params loaded")
             
             
-            showModal(modalDialog(i18n$t("Loading solar and energy consumption data..."), footer = NULL))
+            showModal(modalDialog(i18n$t("Estimating solar and energy consumption data..."), footer = NULL))
             #removeModal()
             
             df1 <- myCombineConsAndSolar(
@@ -439,30 +472,29 @@ server <- function(input, output, session) {
             print("hiding load data button")
             
             #disable inputs affecting inputs (dates, PV and HH cons) that shouldn't be editable anymore
-            shinyjs::disable("system_lifetime")
-            shinyjs::disable("lat")
-            shinyjs::disable("lon")
-            shinyjs::disable("start_date")
-            shinyjs::disable("selected_language")
-            
-            shinyjs::disable("battery_capacity_kwh")
-            shinyjs::disable("battery_charge_efficiency")
-            shinyjs::disable("battery_discharge_efficiency")
-            shinyjs::disable("battery_initial_soc")
-            shinyjs::disable("battery_min_soc")
-            shinyjs::disable("battery_max_soc")
-            shinyjs::disable("battery_degradation")
-
-            shinyjs::disable("PV_peakpower")
-            shinyjs::disable("PV_system_loss")
-            shinyjs::disable("PV_angle")
-            shinyjs::disable("PV_aspect")
-            shinyjs::disable("PV_degradation")
-            shinyjs::disable("PV_system_own_consumption")
-            shinyjs::disable("PV_add_PV_noise")
-
-            shinyjs::disable("HH_annual_consumption")
-            shinyjs::disable("HH_add_cons_noise")
+            shinyjs::delay(100, { #delay by 100 milliseconds
+              shinyjs::disable("HH_annual_consumption")
+              shinyjs::disable("HH_add_cons_noise")
+              shinyjs::disable("PV_peakpower")
+              shinyjs::disable("PV_system_loss")
+              shinyjs::disable("PV_angle")
+              shinyjs::disable("PV_aspect")
+              shinyjs::disable("PV_degradation")
+              shinyjs::disable("PV_system_own_consumption")
+              shinyjs::disable("PV_add_PV_noise")
+              shinyjs::disable("battery_capacity_kwh")
+              shinyjs::disable("battery_charge_efficiency")
+              shinyjs::disable("battery_discharge_efficiency")
+              shinyjs::disable("battery_initial_soc")
+              shinyjs::disable("battery_min_soc")
+              shinyjs::disable("battery_max_soc")
+              shinyjs::disable("battery_degradation")
+              shinyjs::disable("system_lifetime")
+              shinyjs::disable("lat")
+              shinyjs::disable("lon")
+              shinyjs::disable("start_date")
+              shinyjs::disable("selected_language")
+            })
             
             # show button for 2nd step
             shinyjs::show("calculate_financials")
@@ -508,7 +540,7 @@ server <- function(input, output, session) {
             
             # Financial parameters
             installation_cost = input$installation_cost,
-            discount_rate = input$discount_rate,
+            discount_rate = input$discount_rate/ 100, # Convert from percentage to decimal,
             annual_maintenance_cost = input$annual_maintenance_cost,
             
             # Date range
@@ -542,9 +574,10 @@ server <- function(input, output, session) {
           )
           
           system_params(sp)
+          glimpse(sp)
           print("sys params loaded")
           
-          showModal(modalDialog(i18n$t("Loading price-related data..."), footer = NULL))
+          showModal(modalDialog(i18n$t("Estimating price-related data..."), footer = NULL))
             
             
           grid_cost <- my_gridcost(
@@ -634,7 +667,7 @@ server <- function(input, output, session) {
     observeEvent(calculations_done(), {
       message("calculations_done() is: ", calculations_done())
       if (calculations_done()) {
-        shinyjs::delay(100, { # Delay by 100 milliseconds (adjust as needed)
+        shinyjs::delay(100, { #delay by 100 milliseconds
           shinyjs::disable("HH_annual_consumption")
           shinyjs::disable("HH_add_cons_noise")
           shinyjs::disable("PV_peakpower")
@@ -696,6 +729,7 @@ server <- function(input, output, session) {
                                                               , payback_period
                                                               , discounted_payback_period
                                                               , self_sufficiency_ratio
+                                                              , avg_solar_capture_rate
                                                               ) %>% 
       rename(
           "Date range" = date_range
@@ -710,6 +744,7 @@ server <- function(input, output, session) {
           , "Payback Period (years)" = payback_period
           , "Discounted Payback Period (years)" = discounted_payback_period
           , "Self-Sufficiency Ratio" = self_sufficiency_ratio
+          , "Average Solar Capture Rate (CZK/kWh)" = avg_solar_capture_rate
            ) %>%
     setNames(., sapply(names(.), function(x) i18n$t(x))) 
     

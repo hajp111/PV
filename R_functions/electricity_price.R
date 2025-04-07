@@ -555,7 +555,7 @@ my_elprice <- function(df = my_data_read_elprice_observed_data()
     
     print("future_prices_step2 - rand walk done")
     rm(future_prices_step0)
-    rm(future_prices_step1)
+    #rm(future_prices_step1)
      
   }#end for trend methods
   gc(full = TRUE)

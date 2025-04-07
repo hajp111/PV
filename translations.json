@@ -73,6 +73,7 @@
  { "en": "Annual Maintenance (CZK)", "cs": "Roční údržba (CZK)" },
  { "en": "Discount Rate", "cs": "Diskontní sazba" },
  { "en": "Annual discount rate for NPV calculations (decimal, e.g., 0.03 = 3%)", "cs": "Roční diskontní sazba pro výpočty NPV (desetinné číslo, např. 0.03 = 3%)" },
+ { "en": "Annual discount rate for NPV calculations (e.g. 3.5 means 3.5 %)", "cs": "Roční diskontní sazba pro výpočty NPV (např. 3.5 znamená 3.5 %)" },
  
  { "en": "Annual Consumption (MWh)", "cs": "Roční spotřeba elektřiny v domácnosti (MWh)" },
  { "en": "Consumption Noise Multiplier", "cs": "Multiplikátor pro přidání šumu do spotřeby" },
@@ -111,10 +112,10 @@
  { "en": "Mean Reverting Random Walk", "cs": "Random Walk s vlastností Mean Reversion" },
  { "en": "Repeat Selected Year", "cs": "Opakuj vybraný rok" },
  
- { "en": "Loading energy data...", "cs": "Načítám data energií..." },
- { "en": "Loading solar and energy consumption data...", "cs": "Načítám data produkce FVE a spotřeby elektřiny..." },
+ { "en": "Estimating energy data...", "cs": "Prognózuji data energií..." },
+ { "en": "Estimating solar and energy consumption data...", "cs": "Prognózuji data produkce FVE a spotřeby elektřiny..." },
  { "en": "Calculating expected energy flows...", "cs": "Počítám očekávané energetické toky..." },
- { "en": "Loading price-related data...", "cs": "Načítám data týkající se cen..." },
+ { "en": "Estimating price-related data...", "cs": "Prognózuji data týkající se cen..." },
  { "en": "Calculating financials...", "cs": "Počítám finanční operace..." },
  
  { "en": "Date range", "cs": "Časové rozmezí" },
@@ -129,13 +130,20 @@
  { "en": "Payback Period (years)", "cs": "Doba návratnosti (roky)" },
  { "en": "Discounted Payback Period (years)", "cs": "Diskontovaná doba návratnosti (roky)" },
  { "en": "Self-Sufficiency Ratio", "cs": "Míra soběstačnosti" },
+ { "en": "Average Solar Capture Rate (CZK/kWh)", "cs": "Průmrěrná cena prodeje přebytků (CZK/kWh)" },
  
  { "en": "Energy data loaded successfully", "cs": "Data energií úspěšně načtena." },
  { "en": "Error loading data:", "cs": "Chyba při načítání dat:" },
  { "en": "Financial calculations complete", "cs": "Finanční výpočty dokončeny." },
  { "en": "Error in financial calculations:", "cs": "Chyba ve finančních výpočtech:" },
+ 
  { "en": "Grid cost must be non-negative. Value reset to 0.", "cs": "Distribuční náklady musí být nezáporné. Hodnota byla resetována na 0." },
  { "en": "Feed-in must be non-negative. Value reset to 0.", "cs": "Výkupní cena musí být nezáporná. Hodnota byla resetována na 0." },
+ { "en": "Battery capacity must be non-negative. Value reset to 0.", "cs": "Kapacita baterie musí být nezáporná. Hodnota byla resetována na 0." },
+ { "en": "PV power must be non-negative. Value reset to 1.", "cs": "Výkon FVE musí být nezáporný. Hodnota byla resetována na 1." },
+ { "en": "Household consumption must be non-negative. Value reset to 1.", "cs": "Spotřeba domácnosti musí být nezáporná. Hodnota byla resetována na 1." },
+ { "en": "Installation cost must be non-negative. Value reset to 0.", "cs": "Cena instalace musí být nezáporná. Hodnota byla resetována na 0." },
+ 
  { "en": "System Lifetime enterd was out of bounds, set to minimum allowed.", "cs": "Zadaná životnost systému byla mimo rozsah, nastavena na minimální povolenou hodnotu." },
  { "en": "System Lifetime enterd was out of bounds, set to maximum allowed.", "cs": "Zadaná životnost systému byla mimo rozsah, nastavena na maximální povolenou hodnotu." },
 
