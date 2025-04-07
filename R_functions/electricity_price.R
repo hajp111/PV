@@ -440,9 +440,18 @@ my_elprice <- function(df = my_data_read_elprice_observed_data()
     rm(future_prices_step0)
   } else if (method %in% c("linear")) {
     
+    my_formula <- price ~ trend()
+    
+    if (add_intraday_variability) {
+      my_formula <- update(my_formula, . ~ . + season(period = "day"))
+    }
+    if (add_intraweek_variability) {
+      my_formula <- update(my_formula, . ~ . + season(period = 168))
+    }
+    
     tslm_model <- df %>% as_tsibble(index = datetime) %>%
       model(
-        ts_fit = TSLM(price ~ trend()  + season(period = "day") + season(period = 168))
+        ts_fit = TSLM(my_formula)
       )
     
     future_prices_step2 <- tslm_model %>% forecast(new_data = future_prices_step0 %>% as_tsibble(index = datetime)) %>%  #new_data has to be tsibble!

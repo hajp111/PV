@@ -734,7 +734,7 @@ color_mapping1 <- c("Time series model" = "orange"
                    )
 
 elpr %>% filter(year == 2025 & month %in% c(3:6)) %>% ggplot() +
-geom_line( aes(x = datetime, y = price, color =  "Time series model"), alpha = 0.4, ) +  
+geom_line( aes(x = datetime, y = price, color =  "Time series model"), alpha = 0.4 ) +  
 geom_line( aes(x = datetime, y = price_hist_w_growth, color = "Historical w growth"), alpha = 0.4 ) +  
 geom_line( aes(x = datetime, y = price_rw_w_growth, color =  "Rand Walk w growth"), alpha = 0.4 ) +  
 geom_line( aes(x = datetime, y = price_selyear_w_growth, color = "Selected Year"), alpha = 0.4 ) +  
