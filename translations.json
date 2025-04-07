@@ -121,6 +121,7 @@
  { "en": "Date range", "cs": "Časové rozmezí" },
  { "en": "Discounted benefit (CZK)", "cs": "Diskontovaný benefit (Kč)" },
  { "en": "Net Present Value (CZK)", "cs": "Čistá současná hodnota (Kč)" },
+ { "en": "Net Present Value", "cs": "Čistá současná hodnota" },
  { "en": "Total electricity generated (kWh)", "cs": "Celková vyrobená elektřina (kWh)" },
  { "en": "Present value of Total Cost (CZK)", "cs": "Současná hodnota celkových nákladů (Kč)" },
  { "en": "Levelized Cost of Electricity (CZK/kWh)", "cs": "LCOE (Kč/kWh)" },
@@ -129,8 +130,13 @@
  { "en": "Break-even price (CZK/kWh)", "cs": "Bod zvratu ceny elektřiny (Kč/kWh)" },
  { "en": "Payback Period (years)", "cs": "Doba návratnosti (roky)" },
  { "en": "Discounted Payback Period (years)", "cs": "Diskontovaná doba návratnosti (roky)" },
+ { "en": "Discounted Payback Period", "cs": "Diskontovaná doba návratnosti" },
  { "en": "Self-Sufficiency Ratio", "cs": "Míra soběstačnosti" },
- { "en": "Average Solar Capture Rate (CZK/kWh)", "cs": "Průmrěrná cena prodeje přebytků (CZK/kWh)" },
+ { "en": "Average Solar Capture Rate (CZK/kWh)", "cs": "Průměrná cena prodeje přebytků (Kč/kWh)" },
+ { "en": "Annual Savings (CZK)", "cs": "Průměrná roční úspora nákladů (CZK)" },
+ { "en": "Annual Savings", "cs": "Průměrná roční úspora nákladů" },
+ 
+ { "en": "Key Metrics", "cs": "Klíčové metriky" },
  
  { "en": "Energy data loaded successfully", "cs": "Data energií úspěšně načtena." },
  { "en": "Error loading data:", "cs": "Chyba při načítání dat:" },
@@ -172,6 +178,9 @@
  { "en": "Average Feed-In per Year", "cs": "Průměrná roční výkupní cena" },
  { "en": "Electricity Price per Year", "cs": "Cena elektřiny v letech" },
  
+ { "en": "years", "cs": "roky" },
+ { "en": "Detailed Financials", "cs": "Detailní finanční metriky" },
+
 
  { "en": "This is a test", "cs": "Toto je test" }
  ]

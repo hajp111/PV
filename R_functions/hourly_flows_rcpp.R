@@ -286,6 +286,7 @@ CalculateFinancials <- function(energy_flows
            , discounted_payback_period = discounted_payback_period
            , self_sufficiency_ratio =  (1 - (sum(energy_flows_w_prices$grid_import)/ sum(energy_flows_w_prices$total_demand))) %>% round(3)
            , avg_solar_capture_rate = ( sum(energy_flows_w_prices$revenue_from_feed_in) / sum(energy_flows_w_prices$grid_export) ) %>% round(2)
+           , annual_savings = ( discounted_benefit / date_range_years) %>% round(0)
       #     , DEBUG_elcons_x_price = mean(energy_flows_w_prices$price) * elcons_saved
       #     , DEBUG_elprice = paste0("Min: ", min(energy_flows_w_prices$price) %>% round(1), " Max: ", max(energy_flows_w_prices$price) %>% round(1), " Mean: ", mean(energy_flows_w_prices$price) %>% round(1))
       #     , DEBUG_feed_in =  paste0("Min: ", min(energy_flows_w_prices$feed_in) %>% round(1), " Max: ", max(energy_flows_w_prices$feed_in) %>% round(1), " Mean: ", mean(energy_flows_w_prices$feed_in) %>% round(1))

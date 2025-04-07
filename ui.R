@@ -10,7 +10,31 @@ library(shiny.i18n)
 i18n <- Translator$new(translation_json_path = "translations.json")
 shinyjs::useShinyjs()
 ui <- fluidPage(
-   
+    # #only neeeded for Font Awesome 6 icons:
+    # tags$link(rel = "stylesheet"
+    #           , href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"),
+    tags$style("
+        .metric-card {
+          background: #f8f9fa;
+          border-radius: 8px;
+          padding: 15px;
+          margin-bottom: 15px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .metric-value {
+          font-size: 24px;
+          font-weight: bold;
+          color: #2c3e50;
+          margin: 10px 0;
+        }
+        
+        .currency {
+          font-size: 14px;
+          color: #7f8c8d;
+          margin-left: 5px;
+        }
+    "),
     tags$footer(style = "position: fixed; 
                 bottom: 0; 
                 width: 100%; 

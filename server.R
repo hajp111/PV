@@ -694,65 +694,120 @@ server <- function(input, output, session) {
     })
     
     #### render summary table in results
-    output$summary_table <- renderTable({
-      shiny::req(final_results())
+    output$summary_table <- renderUI({
+            shiny::req(final_results())
+      transpose_this <- final_results()$summary_vals %>% 
+        select(date_range
+               # , discounted_net_cashflow_without_PV
+               # , discounted_net_cashflow_explicit
+               # , discounted_maintenance_costs
+               # , discounted_net_cashflow_explicit_w_maintenance
+               #
+               # , discounted_benefit_wo_maintenance
+               , discounted_benefit
+               # , discounted_benefit_alt
+               , NPV
+               # , NPV_alt
+               #
+               , total_electricity_generated
+               # , grid_export 
+               # , grid_import 
+               # , household_el_consumption 
+               # , elcons_saved
+               # , feed_in_revenue_nominal
+               # for LCOE calculation
+               # , installation_cost
+               # , Present_Value_maintenance_costs
+               , Present_Value_total_cost
+               # , discounted_total_el_produced
+               , LCOE
+               , annualized_rate_of_return
+               # , FV
+               # , annualized_rate_of_return_alt #should be the same as annualized_rate_of_return
+               , breakeven_feedin
+               , breakeven_price
+               , payback_period
+               , discounted_payback_period
+               , self_sufficiency_ratio
+               , avg_solar_capture_rate
+               , annual_savings
+      ) 
+      #when adding new measures, REMEMBER TO ALSO add them to the table where they are RENAMED (see BELOW in renderTable)
       
-    transpose_this <- final_results()$summary_vals %>% select( date_range
-                                                              # , discounted_net_cashflow_without_PV
-                                                              # , discounted_net_cashflow_explicit
-                                                              # , discounted_maintenance_costs
-                                                              # , discounted_net_cashflow_explicit_w_maintenance
-                                                               #
-                                                              # , discounted_benefit_wo_maintenance
-                                                               , discounted_benefit
-                                                              # , discounted_benefit_alt
-                                                               , NPV
-                                                              # , NPV_alt
-                                                               #
-                                                               , total_electricity_generated
-                                                              # , grid_export 
-                                                              # , grid_import 
-                                                              # , household_el_consumption 
-                                                              # , elcons_saved
-                                                              # , feed_in_revenue_nominal
-                                                               # for LCOE calculation
-                                                              # , installation_cost
-                                                              # , Present_Value_maintenance_costs
-                                                               , Present_Value_total_cost
-                                                              # , discounted_total_el_produced
-                                                               , LCOE
-                                                               , annualized_rate_of_return
-                                                              # , FV
-                                                              # , annualized_rate_of_return_alt #should be the same as annualized_rate_of_return
-                                                              , breakeven_feedin
-                                                              , breakeven_price
-                                                              , payback_period
-                                                              , discounted_payback_period
-                                                              , self_sufficiency_ratio
-                                                              , avg_solar_capture_rate
-                                                              ) %>% 
-      rename(
-          "Date range" = date_range
-          , "Discounted benefit (CZK)" = discounted_benefit
-          , "Net Present Value (CZK)" = NPV
-          , "Total electricity generated (kWh)" = total_electricity_generated
-          , "Present value of Total Cost (CZK)" = Present_Value_total_cost
-          , "Levelized Cost of Electricity (CZK/kWh)" = LCOE
-          , "Annualized rate of return" = annualized_rate_of_return
-          , "Break-even feed-in tariff (CZK/kWh)" = breakeven_feedin
-          , "Break-even price (CZK/kWh)" = breakeven_price
-          , "Payback Period (years)" = payback_period
-          , "Discounted Payback Period (years)" = discounted_payback_period
-          , "Self-Sufficiency Ratio" = self_sufficiency_ratio
-          , "Average Solar Capture Rate (CZK/kWh)" = avg_solar_capture_rate
-           ) %>%
-    setNames(., sapply(names(.), function(x) i18n$t(x))) 
-    
-    #show this as a table:
-    transpose_this %>% mutate(across(everything(), as.character)) %>%
-     pivot_longer(cols = everything(), names_to = "variable", values_to = "value") %>%
-      setNames(., sapply(names(.), function(x) i18n$t(x))) 
-    })#end renderTable summary_table
+      tagList(
+        h4(i18n$t("Key Metrics"), style="color: #2c3e50;"),
+        fluidRow(
+         column(3,
+          div(class = "metric-card",
+           h4(i18n$t("Net Present Value"),
+            icon("line-chart"),
+            div(class = "metric-value",
+             transpose_this$NPV[[1]] %>% round(0) %>% format(big.mark = " "), 
+             span("CZK", class = "currency")
+              )
+             )
+           )
+          ),
+         column(3,
+          div(class = "metric-card",
+            h4(i18n$t("Annualized rate of return"), 
+             icon("percent"),
+             div(class = "metric-value",
+             scales::percent(transpose_this$annualized_rate_of_return[[1]], accuracy = 1.0)
+               )
+              )
+             )
+            ),
+         column(3,
+          div(class = "metric-card",
+           h4(i18n$t("Discounted Payback Period"), 
+            icon("clock"),
+            div(class = "metric-value",
+             transpose_this$discounted_payback_period[[1]] %>% round(1), 
+             span(i18n$t("years"))
+             )
+            )
+           )
+          ),
+         column(3,
+          div(class = "metric-card",
+           h4(i18n$t("Annual Savings"), 
+            icon("bar-chart"),
+            div(class = "metric-value",
+            transpose_this$annual_savings[[1]] %>% round(1), 
+            span("CZK", class = "currency")
+                       )
+                    )
+                )
+         )
+        ),
+        h4(i18n$t("Detailed Financials"), style="margin-top: 20px;"),
+        renderTable({ 
+         #show this as a table:
+         transpose_this %>% 
+           rename(
+              "Date range" = date_range
+              , "Discounted benefit (CZK)" = discounted_benefit
+              , "Net Present Value (CZK)" = NPV
+              , "Total electricity generated (kWh)" = total_electricity_generated
+              , "Present value of Total Cost (CZK)" = Present_Value_total_cost
+              , "Levelized Cost of Electricity (CZK/kWh)" = LCOE
+              , "Annualized rate of return" = annualized_rate_of_return
+              , "Break-even feed-in tariff (CZK/kWh)" = breakeven_feedin
+              , "Break-even price (CZK/kWh)" = breakeven_price
+              , "Payback Period (years)" = payback_period
+              , "Discounted Payback Period (years)" = discounted_payback_period
+              , "Self-Sufficiency Ratio" = self_sufficiency_ratio
+              , "Average Solar Capture Rate (CZK/kWh)" = avg_solar_capture_rate
+              , "Annual Savings (CZK)" = annual_savings
+            ) %>%
+           setNames(., sapply(names(.), function(x) i18n$t(x))) %>% 
+           mutate(across(everything(), as.character)) %>%
+           pivot_longer(cols = everything(), names_to = "variable", values_to = "value") %>%
+           setNames(., sapply(names(.), function(x) i18n$t(x))) 
+        })#end renderTable
+      )#end tagList
+    })#end renderUI summary_table
     
     #### interactive plot for daily overview:
     output$energy_plot <- renderPlotly({
