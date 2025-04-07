@@ -151,8 +151,6 @@ CalculateEnergyFlows <- function(dat, params) {
     mutate(
       grid_balance = grid_import - grid_export
       , hourly_elcons_savings_kwh = cons_kWh - grid_import # positive when PV is beneficial, negative when it is worse than no installation
-      , discount_factor = 1 / (1 + params$discount_rate/8760)^(row_number()-1) 
-      , discounted_PV_available = PV_available * discount_factor
       , self_sufficiency_ratio = (1 - (grid_import/total_demand)) %>% round(3)
     )
   
@@ -163,7 +161,9 @@ CalculateEnergyFlows <- function(dat, params) {
 #this ensures that the same mutate is applied in CalculateFinancials() and in BreakevenFeedIn() and BreakevenPrice()
 CalculateFinancials_auxMutate <- function(energy_flows_w_prices, params) {
   energy_flows_w_prices <- energy_flows_w_prices %>%
-    mutate(theo_cost_from_grid_without_PV = (price + grid_cost) * cons_kWh   #cost without PV installation, not yet with negative sign
+    mutate(discount_factor = 1 / (1 + params$discount_rate/8760)^(row_number()-1) 
+           , discounted_PV_available = PV_available * discount_factor
+           , theo_cost_from_grid_without_PV = (price + grid_cost) * cons_kWh   #cost without PV installation, not yet with negative sign
            , discounted_theo_cost_from_grid_without_PV = discount_factor * theo_cost_from_grid_without_PV # not yet with negative sign
            , net_cashflow_without_PV = 0 - theo_cost_from_grid_without_PV # already with negative sign
            , discounted_net_cashflow_without_PV = discount_factor * net_cashflow_without_PV # already with negative sign
@@ -284,7 +284,8 @@ CalculateFinancials <- function(energy_flows
            , breakeven_price = FindBreakevenPrice(hourly_energy_flows = energy_flows_w_prices, params = params) %>% round(2)
            , payback_period  
            , discounted_payback_period = discounted_payback_period
-           , self_sufficiency_ratio = mean(energy_flows_w_prices$self_sufficiency_ratio, na.rm = TRUE) %>% round(3)
+           , self_sufficiency_ratio =  (1 - (sum(energy_flows_w_prices$grid_import)/ sum(energy_flows_w_prices$total_demand))) %>% round(3)
+           , avg_solar_capture_rate = ( sum(energy_flows_w_prices$revenue_from_feed_in) / sum(energy_flows_w_prices$grid_export) ) %>% round(2)
       #     , DEBUG_elcons_x_price = mean(energy_flows_w_prices$price) * elcons_saved
       #     , DEBUG_elprice = paste0("Min: ", min(energy_flows_w_prices$price) %>% round(1), " Max: ", max(energy_flows_w_prices$price) %>% round(1), " Mean: ", mean(energy_flows_w_prices$price) %>% round(1))
       #     , DEBUG_feed_in =  paste0("Min: ", min(energy_flows_w_prices$feed_in) %>% round(1), " Max: ", max(energy_flows_w_prices$feed_in) %>% round(1), " Mean: ", mean(energy_flows_w_prices$feed_in) %>% round(1))
