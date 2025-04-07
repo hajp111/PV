@@ -207,11 +207,11 @@ server <- function(input, output, session) {
                   ),
                   if (calculations_done()) {
                   tabPanel(i18n$t("Observe Input Data Charts"), value = "chartsTab",
-                           plotOutput("elconsPlot"),
-                           plotOutput("solarPlot"),
-                           plotOutput("gridCostPlot"),
-                           plotOutput("feedInPlot"),
-                           plotOutput("elpricePlot")
+                           plotlyOutput("elconsPlot"),
+                           plotlyOutput("solarPlot"),
+                           plotlyOutput("gridCostPlot"),
+                           plotlyOutput("feedInPlot"),
+                           plotlyOutput("elpricePlot")
                   )},
                   if (calculations_done()) {
                   tabPanel(i18n$t("Results"), value = "resultsTab",
@@ -771,32 +771,33 @@ server <- function(input, output, session) {
           "Grid Import" = "black",
           "Grid Export" = "darkgreen",
           "Battery SoC" = "blue"
-        )
+        ) %>% 
+          setNames(., sapply(names(.), function(x) i18n$t(x)))
         
         ply <- plot_ly(df, x = ~hour) %>%
           # primariy axis
-          add_trace(y = ~PV_available, name = "PV Available", type = "scatter", mode = "lines",
-                    line = list(color = colors[["PV Available"]])) %>%
-          add_trace(y = ~total_demand, name = "Total Demand", type = "scatter", mode = "lines",
-                    line = list(color = colors[["Total Demand"]])) %>%
-          add_trace(y = ~grid_import, name = "Grid Import", type = "scatter", mode = "lines",
-                    line = list(color = colors[["Grid Import"]])) %>%
-          add_trace(y = ~grid_export, name = "Grid Export", type = "scatter", mode = "lines",
-                    line = list(color = colors[["Grid Export"]])) %>%
+          add_trace(y = ~PV_available, name = i18n$t("PV Available"), type = "scatter", mode = "lines",
+                    line = list(color = colors[[i18n$t("PV Available")]])) %>%
+          add_trace(y = ~total_demand, name = i18n$t("Total Demand"), type = "scatter", mode = "lines",
+                    line = list(color = colors[[i18n$t("Total Demand")]])) %>%
+          add_trace(y = ~grid_import, name = i18n$t("Grid Import"), type = "scatter", mode = "lines",
+                    line = list(color = colors[[i18n$t("Grid Import")]])) %>%
+          add_trace(y = ~grid_export, name = i18n$t("Grid Export"), type = "scatter", mode = "lines",
+                    line = list(color = colors[[i18n$t("Grid Export")]])) %>%
           # secondary axis (for battery SoC)
-          add_trace(y = ~battery_soc, name = "Battery SoC", type = "scatter", mode = "lines",
-                    line = list(color = colors[["Battery SoC"]], dash = "dot"),
+          add_trace(y = ~battery_soc, name = i18n$t("Battery SoC"), type = "scatter", mode = "lines",
+                    line = list(color = colors[[i18n$t("Battery SoC")]], dash = "dot"),
                     yaxis = "y2") %>%
           #labs
           layout(
-            title = list(text = "Energy Flow (Hourly)", font = list(size = 12)),
-            xaxis = list(title = "Hour", tickmode = "linear", dtick = 1), 
-            yaxis = list(title = "Energy (kWh)"
+            title = list(text = i18n$t("Energy Flow (Hourly)"), font = list(size = 12)),
+            xaxis = list(title = i18n$t("Hour"), tickmode = "linear", dtick = 1), 
+            yaxis = list(title = i18n$t("Energy (kWh)")
                          , side = "left", showgrid = TRUE
                          , titlefont = list(size = 10),
                          tickfont = list(size = 8)),
             yaxis2 = list(
-              title = "Battery SoC (kWh)",
+              title = i18n$t("Battery SoC (kWh)"),
               side = "right",
               overlaying = "y",
               range = c(0, system_params()$battery_capacity_kwh), 
@@ -819,62 +820,102 @@ server <- function(input, output, session) {
     
     
     #### render plots of inputs
-    output$elconsPlot <- renderPlot({
+    output$elconsPlot <- renderPlotly({
         shiny::req( final_results()$df_hourly )
       
       final_results()$df_hourly %>%
         group_by(date, year) %>% 
-        summarize(cons_kWh = sum(cons_kWh)) %>%
-        ggplot() + 
-        geom_line(aes(x=date, y = cons_kWh), alpha = 0.5) +
-        scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
-        theme_minimal()
+        summarize(cons_kWh = sum(cons_kWh), .groups = "drop") %>%
+        plot_ly(x = ~date, y = ~cons_kWh, type = 'scatter', mode = 'lines',
+                line = list(color = 'rgba(0, 0, 0, 0.5)')) %>%
+        layout(
+          title = list(text = i18n$t("Household Consumption"), x = 0.5), 
+          yaxis = list(title = i18n$t("kWh"), range = c(0, NA), zeroline = TRUE),
+          xaxis = list(title = i18n$t("Date")),
+          plot_bgcolor = "#FFFFFF",
+          paper_bgcolor = "#FFFFFF"
+        )
     })
     
-    output$solarPlot <- renderPlot({
+    output$solarPlot <- renderPlotly({
          shiny::req( final_results()$df_hourly )
          
-         final_results()$df_hourly %>%
-           group_by(date, year, month, day, weekday, is_weekend) %>% 
-           summarize(P_kWh = P_kWh %>% sum(na.rm = TRUE)
-           ) %>% 
-           ggplot() +
-           geom_line(aes(x=date, y = P_kWh), alpha = 0.5) +
-           scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
-           theme_minimal()
+      final_results()$df_hourly %>%
+        group_by(date, year, month, day, weekday, is_weekend) %>% 
+        summarize(PV_available = sum(PV_available, na.rm = TRUE), .groups = "drop") %>%
+        plot_ly(
+          x = ~date, 
+          y = ~PV_available, 
+          type = 'scatter', 
+          mode = 'lines',
+          line = list(color = 'rgba(0, 0, 0, 0.5)')  # semi-transparent line
+        ) %>%
+        layout(
+          title = list(text = i18n$t("Available Solar Power"), x = 0.5),  # optional title
+          yaxis = list(title = i18n$t("kWh"), range = c(0, NA), zeroline = TRUE),
+          xaxis = list(title = i18n$t("Date")),
+          plot_bgcolor = "#FFFFFF",
+          paper_bgcolor = "#FFFFFF"
+        )
          
     })
     
-    output$gridCostPlot <- renderPlot({
+    output$gridCostPlot <- renderPlotly({
       shiny::req( final_results()$df_hourly)
       
       
       final_results()$df_hourly %>%
         group_by(year) %>% 
-        summarize(grid_cost = grid_cost %>% mean(na.rm = TRUE)
-        ) %>% 
-        ggplot() +
-        geom_line(aes(x=year, y = grid_cost), alpha = 0.5) +
-        scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
-        theme_minimal()
-        
-      
+        summarize(grid_cost = mean(grid_cost, na.rm = TRUE), .groups = "drop") %>%
+        plot_ly(
+          x = ~year, 
+          y = ~grid_cost, 
+          type = 'scatter', 
+          mode = 'lines',
+          line = list(color = 'rgba(0, 0, 0, 0.5)')  # match ggplot alpha = 0.5
+        ) %>%
+        layout(
+          title = list(text = i18n$t("Grid Cost"), x = 0.5),
+          yaxis = list(title = i18n$t("Grid Cost"), range = c(0, NA), zeroline = TRUE),
+          xaxis = list(
+            title = i18n$t("Year"),
+            tickmode = "linear",  
+            tickformat = "%d",     # format ticks as integers 
+            dtick = 1              # interval between ticks
+          ),
+          plot_bgcolor = "#FFFFFF",
+          paper_bgcolor = "#FFFFFF"
+        )
     })
     
-    output$feedInPlot <- renderPlot({
+    output$feedInPlot <- renderPlotly({
       shiny::req( final_results()$df_hourly)
       
       final_results()$df_hourly %>%
         group_by(year) %>% 
-        summarize(feed_in = feed_in %>% mean(na.rm = TRUE)
-        ) %>% 
-        ggplot() +
-        geom_line(aes(x=year, y = feed_in), alpha = 0.5) +
-        scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
-        theme_minimal()
+        summarize(feed_in = mean(feed_in, na.rm = TRUE), .groups = "drop") %>%
+        plot_ly(
+          x = ~year, 
+          y = ~feed_in, 
+          type = 'scatter', 
+          mode = 'lines',
+          line = list(color = 'rgba(0, 0, 0, 0.5)')  # semi-transparent like alpha=0.5
+        ) %>%
+        layout(
+          title = list(text = i18n$t("Average Feed-In per Year"), x = 0.5),
+          yaxis = list(title = i18n$t("Feed-In"), range = c(0, NA), zeroline = TRUE),
+          xaxis = list(
+            title = i18n$t("Year"),
+            tickmode = "linear",  
+            tickformat = "%d",     # format ticks as integers 
+            dtick = 1              # interval between ticks
+          ),
+          plot_bgcolor = "#FFFFFF",
+          paper_bgcolor = "#FFFFFF"
+        )
     })
     
-    output$elpricePlot <- renderPlot({
+    output$elpricePlot <- renderPlotly({
       shiny::req( final_results()$df_hourly)
       
       # final_results()$df_hourly %>%
@@ -892,14 +933,18 @@ server <- function(input, output, session) {
       #   theme_minimal()  
       
       final_results()$df_hourly %>%
-        ggplot() +
-        geom_boxplot(aes( x= year %>% factor(), y = price)) +
-        theme_minimal() +
-        theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-        labs(x = "Year",
-             y = "Price"
+        plot_ly(
+          x = ~factor(year), 
+          y = ~price, 
+          type = "box"
+        ) %>%
+        layout(
+          title = list(text =  i18n$t("Electricity Price per Year"), x = 0.5),
+          xaxis = list(title =  i18n$t("Year"), tickangle = 90),
+          yaxis = list(title =  i18n$t("CZK/kWh")),
+          plot_bgcolor = "#FFFFFF",
+          paper_bgcolor = "#FFFFFF"
         )
-      
     })
     
     

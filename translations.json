@@ -149,6 +149,29 @@
 
  { "en": "variable", "cs": "proměnná" },
  { "en": "value", "cs": "hodnota" },
+ { "en": "kWh", "cs": "kWh" },
+ { "en": "CZK/kWh", "cs": "CZK/kWh" },
+ 
+ { "en": "PV Available", "cs": "FV výroba" },
+ { "en": "Total Demand", "cs": "Celková spotřeba" },
+ { "en": "Grid Import", "cs": "Odběr ze sítě" },
+ { "en": "Grid Export", "cs": "Dodávka do sítě" },
+ { "en": "Battery SoC", "cs": "Stav nabití baterie" },
+ { "en": "Energy Flow (Hourly)", "cs": "Tok energie (hodinový)" },
+ { "en": "Hour", "cs": "Hodina" },
+ { "en": "Energy (kWh)", "cs": "Energie (kWh)" },
+ { "en": "Battery SoC (kWh)", "cs": "Stav nabití baterie (kWh)" },
+ 
+ { "en": "Date", "cs": "Datum" },
+ { "en": "Year", "cs": "Rok" },
+ 
+ { "en": "Household Consumption", "cs": "Spotřeba domácnosti" },
+ { "en": "Available Solar Power", "cs": "Solární výroba" },
+ { "en": "Grid Cost", "cs": "Distribuční náklady" },
+ { "en": "Feed-In", "cs": "Výkupní cena" },
+ { "en": "Average Feed-In per Year", "cs": "Průměrná roční výkupní cena" },
+ { "en": "Electricity Price per Year", "cs": "Cena elektřiny v letech" },
+ 
 
  { "en": "This is a test", "cs": "Toto je test" }
  ]
