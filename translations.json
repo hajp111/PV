@@ -18,7 +18,7 @@
  { "en": "Fixed Seed", "cs": "Fixní seed" },
  { "en": "Controls", "cs": "Nastavení" },
  { "en": "Location", "cs": "Poloha" },
- { "en": "Click on the map to set your location or enter coordinates manually", "cs": "Klikněte na mapu pro nastavení polohy nebo zadejte souřadnice ručně." },
+ { "en": "Click on the map to set your location or enter coordinates manually", "cs": "Klikněte na mapu pro nastavení polohy nebo zadejte souřadnice ručně" },
  { "en": "Date Range", "cs": "Časový rozsah" },
  { "en": "Start Date", "cs": "Počáteční datum" },
  { "en": "System Lifetime (years)", "cs": "Očekáváná životnost" },
@@ -28,14 +28,17 @@
  { "en": "Financials", "cs": "Finanční parametry" },
  { "en": "Household", "cs": "Parametry domácnosti" },
  { "en": "Electricity Prices", "cs": "Ceny elektřiny" },
- { "en": "Feed-in Tariff", "cs": "Výkupní cena elektřiny" },
- { "en": "Grid Costs", "cs": "Distribuční náklady" },
+ 
  { "en": "Observe Input Data Charts", "cs": "Grafy vstupních dat" },
  { "en": "Results", "cs": "Výsledky" },
  { "en": "Financial Summary", "cs": "Finanční souhrn" },
  
+ { "en": "Results - Annual Values", "cs": "Výsledky po letech" },
+ { "en": "Results - Charts", "cs": "Výsledky - grafy" },
+ { "en": "Plot shows electricity price, grid cost and feed-in tariff for the selected date", "cs": "Graf zachycuje cenu elektřiny, distribuční náklady a výkupní cenu pro zvolené datum" },
+ 
  { "en": "Hourly Energy Flows", "cs": "Hodinové energetické toky" },
- { "en": "Plot shows energy flows and battery state for the selected date", "cs": "Graf ukazuje energetické toky a stav baterie pro vybraný den." },
+ { "en": "Plot shows energy flows and battery state for the selected date", "cs": "Graf ukazuje energetické toky a stav baterie pro vybraný den" },
  
  { "en": "Download Summary (CSV)", "cs": "Stáhnout souhrn (CSV)" },
  { "en": "Download Hourly Data (CSV)", "cs": "Stáhnout hodinová data (CSV)" },
@@ -142,9 +145,9 @@
  
  { "en": "Key Metrics", "cs": "Klíčové metriky" },
  
- { "en": "Energy data loaded successfully", "cs": "Data energií úspěšně načtena." },
+ { "en": "Energy data loaded successfully", "cs": "Data energií úspěšně načtena" },
  { "en": "Error loading data:", "cs": "Chyba při načítání dat:" },
- { "en": "Financial calculations complete", "cs": "Finanční výpočty dokončeny." },
+ { "en": "Financial calculations complete", "cs": "Finanční výpočty dokončeny" },
  { "en": "Error in financial calculations:", "cs": "Chyba ve finančních výpočtech:" },
  
  { "en": "Grid cost must be non-negative. Value reset to 0.", "cs": "Distribuční náklady musí být nezáporné. Hodnota byla resetována na 0." },
@@ -168,19 +171,43 @@
  { "en": "Grid Export", "cs": "Dodávka do sítě" },
  { "en": "Battery SoC", "cs": "Stav nabití baterie" },
  { "en": "Energy Flow (Hourly)", "cs": "Tok energie (hodinový)" },
- { "en": "Hour", "cs": "Hodina" },
  { "en": "Energy (kWh)", "cs": "Energie (kWh)" },
  { "en": "Battery SoC (kWh)", "cs": "Stav nabití baterie (kWh)" },
  
  { "en": "Date", "cs": "Datum" },
  { "en": "Year", "cs": "Rok" },
+ { "en": "Month", "cs": "Měsíc" },
+ { "en": "Day", "cs": "Den" },
+ { "en": "Hour", "cs": "Hodina" },
  
  { "en": "Household Consumption", "cs": "Spotřeba domácnosti" },
  { "en": "Available Solar Power", "cs": "Solární výroba" },
  { "en": "Grid Cost", "cs": "Distribuční náklady" },
+ { "en": "Grid Cost (CZK)", "cs": "Distribuční náklady (CZK)" },
  { "en": "Feed-In", "cs": "Výkupní cena" },
+ { "en": "Feed-in Tariff", "cs": "Výkupní cena" },
+ { "en": "Feed-in Tariff (CZK)", "cs": "Výkupní cena (CZK)" },
  { "en": "Average Feed-In per Year", "cs": "Průměrná roční výkupní cena" },
  { "en": "Electricity Price per Year", "cs": "Cena elektřiny v letech" },
+ { "en": "Prices (Hourly)", "cs": "Ceny (hodinově)" },
+ { "en": "Prices", "cs": "Ceny" },
+ { "en": "Price", "cs": "Cena" },
+ { "en": "Price (CZK)", "cs": "Cena (CZK)" },
+ { "en": "Electricity Price (CZK)", "cs": "Cena elektřiny (CZK)" },
+ { "en": "Electricity Price", "cs": "Cena elektřiny" },
+ 
+ 
+ { "en": "Grid Import (kWh)", "cs": "Odběr z distribuční sítě (kWh)" },
+ { "en": "Grid Export (kWh)", "cs": "Dodávka do distribuční sítě (kWh)" },
+ 
+ { "en": "Houshold El. Demand (kWh)", "cs": "Potřeba elektřiny v domácnosti (kWh)" },
+ { "en": "El. Consumption Savings (kWh)", "cs": "Úspora elektřiny ze sítě (kWh)" },
+ { "en": "El. Produced (kWh)", "cs": "Výroba elektřiny (kWh)" },
+ { "en": "Feed-in Revenue (CZK)", "cs": "Výnosy za dodávku do distribuční sítě (CZK)" },
+ { "en": "Benefit (without maintenance) (CZK)", "cs": "Finanční benefit bez nákladů na údržbu (kWh)" },
+ { "en": "Maintenance Costs (CZK)", "cs": "Náklady na údržbu (CZK)" },
+ { "en": "Benefit (CZK)", "cs": "Finanční benefit (CZK)" },
+ 
  
  { "en": "years", "cs": "roky" },
  { "en": "Detailed Financials", "cs": "Detailní finanční metriky" },

@@ -186,7 +186,7 @@ server <- function(input, output, session) {
                            helpText(i18n$t("Annual feed-in tariff growth rate (decimal, e.g., 0.01 = 1%)"))
                   ),
                   
-                  tabPanel(i18n$t("Grid Costs"), value = "gridcostTab",
+                  tabPanel(i18n$t("Grid Cost"), value = "gridcostTab",
                            
                            
                            selectInput(inputId = "gridcost_method", i18n$t("Method"),
@@ -217,15 +217,28 @@ server <- function(input, output, session) {
                   tabPanel(i18n$t("Results"), value = "resultsTab",
                            h3(i18n$t("Financial Summary")),
                            tableOutput("summary_table"),
-                           h3(i18n$t("Hourly Energy Flows")),
-                           dateInput("plot_date", i18n$t("Select Date"), value = Sys.Date()),
-                           plotlyOutput("energy_plot"),
-                           helpText(i18n$t("Plot shows energy flows and battery state for the selected date")),
                            downloadButton("download_summary", i18n$t("Download Summary (CSV)"), class = "btn btn-primary"),
                            downloadButton("download_hourly", i18n$t("Download Hourly Data (CSV)"), class = "btn btn-success"),
                            downloadButton("download_params", i18n$t("Download Input Parameters (CSV)"), class = "btn btn-success")
                   )
-                  }#endif calculations_done()
+                  },
+                  if (calculations_done()) {
+                    tabPanel(i18n$t("Results - Annual Values"), value = "resultsAnnualTab",
+                             h3(i18n$t("Financial Summary")),
+                             tableOutput("annual_table"),
+                    )
+                  },
+                  if (calculations_done()) {
+                    tabPanel(i18n$t("Results - Charts"), value = "resultsChartsTab",
+                             h3(i18n$t("Hourly Energy Flows")),
+                             dateInput("plot_date", i18n$t("Select Date"), value = Sys.Date()),
+                             plotlyOutput("energy_plot"),
+                             helpText(i18n$t("Plot shows energy flows and battery state for the selected date")),
+                             plotlyOutput("price_plot"),
+                             helpText(i18n$t("Plot shows electricity price, grid cost and feed-in tariff for the selected date"))
+                    )
+                  }
+                  #endif calculations_done()
       )#end tabsetPanel
     })#end translated_tabs
     
@@ -652,13 +665,6 @@ server <- function(input, output, session) {
             showNotification(paste(i18n$t("Error in financial calculations:"), e$message), type = "error", duration = 15)
         }, finally = {
             
-            #showTab(inputId = "mainPanelTabs", target = "chartsTab")
-            #showTab(inputId = "mainPanelTabs", target = "resultsTab")
-            # shinyjs::runjs("
-            #   $('#mainPanelTabs li a[data-value=\"chartsTab\"]').parent().show();
-            #   $('#mainPanelTabs li a[data-value=\"resultsTab\"]').parent().show();
-            #   ")
-            
             removeModal()
             print("step2 done")
         })
@@ -814,7 +820,56 @@ server <- function(input, output, session) {
       )#end tagList
     })#end renderUI summary_table
     
-    #### interactive plot for daily overview:
+    #### render summary table in results
+    output$annual_table <- renderUI({
+      shiny::req(final_results())
+      
+      annual_vals <- final_results()$df_hourly %>% 
+        group_by(year) %>% 
+        summarize(
+          price = price %>% mean(na.rm = TRUE) %>% round(2)
+          , grid_cost = grid_cost %>% mean(na.rm = TRUE) %>% round(2)
+          , feed_in = feed_in %>% mean(na.rm = TRUE) %>% round(2)
+          , grid_import = grid_import %>% sum(na.rm = TRUE) %>% round(0)
+          , grid_export = grid_export %>% sum(na.rm = TRUE) %>% round(0)
+          , total_demand = total_demand %>% sum(na.rm = TRUE) %>% round(0)
+          , hourly_elcons_savings_kwh = hourly_elcons_savings_kwh %>% sum(na.rm = TRUE) %>% round(0)
+          , PV_available = PV_available %>% sum(na.rm = TRUE) %>% round(0)
+          , self_sufficiency_ratio = (1 - (sum(grid_import)/sum(total_demand))) %>% round(3)
+          , revenue_from_feed_in = revenue_from_feed_in %>% sum(na.rm = TRUE) %>% round(0)
+          , benefit_wo_maintenance = benefit_wo_maintenance %>% sum(na.rm = TRUE) %>% round(0)
+          , maintenance_costs = maintenance_costs %>% sum(na.rm = TRUE) %>% round(0)
+          , benefit = benefit %>% sum(na.rm = TRUE) %>% round(0)
+          )
+      #when adding new measures, REMEMBER TO ALSO add them to the table where they are RENAMED (see BELOW in renderTable)
+      
+     
+        renderTable({ 
+          #show this as a table:
+          annual_vals %>% 
+            rename(
+              "Year" = year
+              , "Electricity Price (CZK)" = price
+              , "Grid Cost (CZK)" = grid_cost
+              , "Feed-in Tariff (CZK)" = feed_in 
+              , "Grid Import (kWh)" = grid_import 
+              , "Grid Export (kWh)" = grid_export 
+              , "Houshold El. Demand (kWh)" = total_demand
+              , "El. Consumption Savings (kWh)" = hourly_elcons_savings_kwh
+              , "El. Produced (kWh)" = PV_available
+              , "Self-Sufficiency Ratio" = self_sufficiency_ratio 
+              , "Feed-in Revenue (CZK)" = revenue_from_feed_in
+              , "Benefit (without maintenance) (CZK)" = benefit_wo_maintenance
+              , "Maintenance Costs (CZK)" = maintenance_costs 
+              , "Benefit (CZK)" = benefit
+            ) %>%
+            setNames(., sapply(names(.), function(x) i18n$t(x))) %>% 
+            mutate(across(everything(), as.character)) 
+        })#end renderTable
+    
+    })#end renderUI ("annual_table")
+    
+    #### interactive plot for daily overview of energy flows:
     output$energy_plot <- renderPlotly({
       shiny::req(final_results(), input$plot_date)
         
@@ -876,6 +931,53 @@ server <- function(input, output, session) {
           )
         
         return(ply)
+    })#end renderPlotly 
+    
+    #### interactive plot for daily overview of prices
+    output$price_plot <- renderPlotly({
+      shiny::req(final_results(), input$plot_date)
+      
+      df <- final_results()$df_hourly %>%
+        filter(as.Date(date) == as.Date(input$plot_date))
+      
+      validate(
+        shiny::need(nrow(df) > 0, "No data available for selected date")
+      )
+      
+      colors <- list(
+        "Electricity Price" = "blue",
+        "Feed-in Tariff" = "red",
+        "Grid Cost" = "black"
+      ) %>% 
+        setNames(., sapply(names(.), function(x) i18n$t(x)))
+      
+      ply <- plot_ly(df, x = ~hour) %>%
+        # primariy axis
+        add_trace(y = ~price, name = i18n$t("Electricity Price"), type = "scatter", mode = "lines",
+                  line = list(color = colors[[i18n$t("Electricity Price")]])) %>%
+        add_trace(y = ~feed_in, name = i18n$t("Feed-in Tariff"), type = "scatter", mode = "lines",
+                  line = list(color = colors[[i18n$t("Feed-in Tariff")]])) %>%
+        add_trace(y = ~grid_cost, name = i18n$t("Grid Cost"), type = "scatter", mode = "lines",
+                  line = list(color = colors[[i18n$t("Grid Cost")]])) %>%
+        #labs
+        layout(
+          title = list(text = i18n$t("Prices (Hourly)"), font = list(size = 12)),
+          xaxis = list(title = i18n$t("Hour"), tickmode = "linear", dtick = 1), 
+          yaxis = list(title = i18n$t("CZK/kWh")
+                       , side = "left", showgrid = TRUE
+                       , titlefont = list(size = 10),
+                       tickfont = list(size = 8)),
+          legend = list(
+            # transparent background
+            bgcolor = "rgba(0,0,0,0)",  
+            font = list(size = 11),  
+            orientation = "h",  
+            x = 0.5, y = -0.15, xanchor = "center"
+          ),
+          hovermode = "x unified"
+        )
+      
+      return(ply)
     })#end renderPlotly 
     
     
