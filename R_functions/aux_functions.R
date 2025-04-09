@@ -2,6 +2,9 @@ my_check_date <- function(input_date) {
   if (inherits(input_date, "Date")) {
     # Input is already a Date object
     return(format(input_date, "%Y-%m-%d"))
+  } else if (inherits(input_date, "POSIXt")) {
+    # Input is a datetime object, extract date only
+    return(format(as.Date(input_date), "%Y-%m-%d"))
   } else if (is.character(input_date)) {
     # Input is a character string, try to convert it
     tryCatch({

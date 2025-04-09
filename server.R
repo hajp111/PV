@@ -599,7 +599,7 @@ server <- function(input, output, session) {
                     )
           print("feed_in loaded")  
           elprice <- my_elprice(
-                    my_data_read_elprice_observed_data()
+                    df = my_data_read_elprice_observed_data()
                     , startdate = sp$start_date
                     , years = sp$system_lifetime, annual_growth = sp$elprice_annual_growth
                     , method = sp$elprice_method

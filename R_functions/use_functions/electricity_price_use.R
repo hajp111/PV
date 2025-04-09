@@ -713,11 +713,6 @@ save(file = "tmp/elpricecharts.RData"
      , elprice4_selectedyear)
 load("tmp/elpricecharts.RData")
 
-elprice1_linear$plot_monthly
-elprice2_historical_w_growth$plot_monthly
-elprice3_randwalk_trend$plot_monthly
-elprice4_selectedyear$plot_monthly
-
 elpr <- elprice1_linear$price_data %>% 
   inner_join(elprice2_historical_w_growth$price_data %>% select(datetime, price) %>% rename(price_hist_w_growth = price), by = "datetime") %>%
   inner_join(elprice3_randwalk_trend$price_data %>% select(datetime, price) %>% rename(price_rw_w_growth = price), by = "datetime") %>%

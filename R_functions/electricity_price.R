@@ -189,14 +189,8 @@ my_gridcost <- function(df = my_data_read_distrib_costs_observed_data()
   if (fixed_seed) {set.seed(123)}
   #check for method
   if (!method %in% c("static", "linear", "last_w_growth", "historical_w_growth")) {stop("Unknown method for grid cost calculation")}#endif
-  
   startdate <- my_check_date(startdate)
-  startyear <- substring(startdate, 1,4) %>% as.integer()  #start_date %>% lubridate::floor_date(start_date %>% lubridate::ymd())
-  endyear <- startyear + years
-
   
-  startdate_orig <- startdate
-  startdate <- startdate %>% as.Date() %>% with_tz(`Datetime (UTC)`, tzone = "Etc/GMT-1") 
   if (fixed_seed) {set.seed(123)}
   if (!all(c("year", "grid_cost") %in% names(df))) {
     stop("Input dataframe probably wrong, expected 'year' and 'grid_cost' columns")
@@ -227,20 +221,8 @@ my_gridcost <- function(df = my_data_read_distrib_costs_observed_data()
               quantile_975 = quantile(grid_cost, probs = 0.975, na.rm = TRUE)
     )
   
+  future_prices_step0 <- prepare_future_timestamps(years = years, startdate = startdate)
   
-  # create future timestamps of hourly vals - use left join to apply the forecast for hourly values
-  future_timestamps <- seq( startdate, by = "1 hour", length.out = years * 24*365.25 %>% round(0) -1)
-  # create df for future (like new_data)
-  future_prices_step0 <- tibble(datetime = future_timestamps) %>%
-    mutate(
-      date = date(datetime)
-      , year = year(datetime) %>% as.integer()
-      , month = month(datetime) %>% as.integer()
-      , day = day(datetime) %>% as.integer()
-      , hour = hour(datetime) %>% as.integer()
-      , weekday = wday(datetime, week_start = 1)
-      , is_weekend = weekday %in% c(6,7)
-    )
   future_years <- tibble(year = seq( startdate %>% year(), by = 1, length.out = years))
     
   if (method %in% c("static")) {
@@ -324,27 +306,12 @@ my_feed_in <- function( years = 20
 ) {
   print(paste0("My feed-in started"))
   startdate <- my_check_date(startdate)
-  startyear <- substring(startdate, 1,4) %>% as.integer()  #start_date %>% lubridate::floor_date(start_date %>% lubridate::ymd())
-  endyear <- startyear + years
   
-  startdate_orig <- startdate
-  startdate <- startdate %>% as.Date() %>% with_tz(`Datetime (UTC)`, tzone = "Etc/GMT-1") 
+  
   if (fixed_seed) {set.seed(123)}
 
+  future_prices_step0 <- prepare_future_timestamps(years = years, startdate = startdate)
   
-  # create future timestamps of hourly vals - use left join to apply the forecast for hourly values
-  future_timestamps <- seq( startdate, by = "1 hour", length.out = years * 24*365.25 %>% round(0) -1)
-  # create df for future (like new_data)
-  future_prices_step0 <- tibble(datetime = future_timestamps) %>%
-    mutate(
-      date = date(datetime)
-      , year = year(datetime) %>% as.integer()
-      , month = month(datetime) %>% as.integer()
-      , day = day(datetime) %>% as.integer()
-      , hour = hour(datetime) %>% as.integer()
-      , weekday = wday(datetime, week_start = 1)
-      , is_weekend = weekday %in% c(6,7)
-    )
   future_years <- tibble(year = seq( startdate %>% year(), by = 1, length.out = years))
   
  if (method %in% c("last_w_growth")) {
@@ -371,25 +338,24 @@ my_feed_in <- function( years = 20
 }#endfunction my_feed_in
 
 my_elprice <- function(df = my_data_read_elprice_observed_data()
-                          , years = 20
-                          , annual_growth = 0.04
-                          , startdate = '2025-01-01'
-                          , method = "linear" # "static", "linear", "last_w_growth", "historical_w_growth", "random_walk_trend", "selected_year" 
-                          , fixed_seed = TRUE
-                          , theta = 0.35
-                          , add_intraday_variability = TRUE
-                          , add_intraweek_variability = TRUE
-                          , lastval
-                          , selected_year = 2023
-                          , add_random_noise = 0  # multiplier of the original used to add some noise to the price values (0.2 means some value from 0.8*price to 1.2*price)
+                       , years = 20
+                       , annual_growth = 0.04
+                       , startdate = '2025-01-01'
+                       , method = "linear" # "static", "linear", "last_w_growth", "historical_w_growth", "random_walk_trend", "selected_year" 
+                       , fixed_seed = TRUE
+                       , theta = 0.35
+                       , add_intraday_variability = TRUE
+                       , add_intraweek_variability = TRUE
+                       , lastval
+                       , selected_year = 2023
+                       , add_random_noise = 0  # multiplier of the original used to add some noise to the price values (0.2 means some value from 0.8*price to 1.2*price)
 ) {
   print(paste0("My el. price started"))
   #check for method
   if (!method %in% c("static", "linear", "last_w_growth", "historical_w_growth", "random_walk_trend", "selected_year" )) {stop("Unknown method for el. price calculation")}#endif
   
   startdate <- my_check_date(startdate)
-  startyear <- substring(startdate, 1,4) %>% as.integer()  #start_date %>% lubridate::floor_date(start_date %>% lubridate::ymd())
-  endyear <- startyear + years
+  
   
   # last known price (avg. of 24 hours)
   last_price <- mean(tail(df$price, 24), na.rm = TRUE)
@@ -417,18 +383,7 @@ my_elprice <- function(df = my_data_read_elprice_observed_data()
   }#end loading decomposed data
   
   # create future timestamps
-  future_timestamps <- seq( startdate, by = "1 hour", length.out = years * 24*365.25 %>% round(0) -1)
-  # create df for future (like new_data)
-  future_prices_step0 <- tibble(datetime = future_timestamps) %>%
-    mutate(
-      date = date(datetime)
-      , year = year(datetime) %>% as.integer()
-      , month = month(datetime) %>% as.integer()
-      , day = day(datetime) %>% as.integer()
-      , hour = hour(datetime) %>% as.integer()
-      , weekday = wday(datetime, week_start = 1)
-      , is_weekend = weekday %in% c(6,7)
-    )
+  future_prices_step0 <- prepare_future_timestamps(years = years, startdate = startdate)
   
   print("future_prices_step0 done")
 
@@ -440,23 +395,10 @@ my_elprice <- function(df = my_data_read_elprice_observed_data()
     rm(future_prices_step0)
   } else if (method %in% c("linear")) {
     
-    my_formula <- price ~ trend()
-    
-    if (add_intraday_variability) {
-      my_formula <- update(my_formula, . ~ . + season(period = "day"))
-    }
-    if (add_intraweek_variability) {
-      my_formula <- update(my_formula, . ~ . + season(period = 168))
-    }
-    
-    tslm_model <- df %>% as_tsibble(index = datetime) %>%
-      model(
-        ts_fit = TSLM(my_formula)
-      )
-    
-    future_prices_step2 <- tslm_model %>% forecast(new_data = future_prices_step0 %>% as_tsibble(index = datetime)) %>%  #new_data has to be tsibble!
-      rename(price_method = .mean) %>%
-      select(-`.model`, -`price`)
+    future_prices_step2 <- my_elprice_linmodel_cached(years = years
+                                                      , startdate = startdate
+                                                      , add_intraday_variability = add_intraday_variability
+                                                      , add_intraweek_variability = add_intraweek_variability)
     print("future_prices_step2 - time series model done")
     rm(future_prices_step0)
     #future_prices_step2 %>% head(150) %>% ggplot(aes(x=datetime, y = price_method)) + geom_line()
@@ -577,7 +519,9 @@ my_elprice <- function(df = my_data_read_elprice_observed_data()
   rm(future_prices_step2)
   gc(full = TRUE)
   print("future_prices - before adding variability done")
-  if (add_intraday_variability) {
+  
+  if (add_intraday_variability & !(method %in% c("linear", "selected_year"))) {
+    print("adding intraday variability")
     future_prices <- future_prices %>%
       left_join(decomposed_agg, by = c("hour" = "hour", "month" = "month", "weekday" = "weekday") ) %>%
       # uniform distribution between quantiles, not so great
@@ -596,7 +540,8 @@ my_elprice <- function(df = my_data_read_elprice_observed_data()
     future_prices <- future_prices %>% mutate(generated_hour_component = 0)
   } #end add_intraday_variability
   
-  if (add_intraweek_variability) {
+  if (add_intraweek_variability & !(method %in% c("linear", "selected_year"))) {
+    print("adding intraweek variability")
     future_prices <- future_prices %>%
       left_join(decomposed_agg, by = c("hour" = "hour", "month" = "month", "weekday" = "weekday") ) %>%
       # uniform distribution between quantiles, not so great
@@ -617,11 +562,11 @@ my_elprice <- function(df = my_data_read_elprice_observed_data()
   # variability already included in "linear" method, so if/else here to avoid adding the intraday/intraweek components twice
   if (method %in% c("linear", "selected_year")) {
     future_prices <- future_prices %>%
-      mutate(# noise_multiplier1 = sample(c(-1, 1), size = n(), replace = TRUE)
+      mutate(
         price = price_method)  
   } else {
   future_prices <- future_prices %>%
-    mutate(# noise_multiplier1 = sample(c(-1, 1), size = n(), replace = TRUE)
+    mutate(
       price = price_method + generated_hour_component + generated_week_component)
   }#endif
   
@@ -633,6 +578,7 @@ my_elprice <- function(df = my_data_read_elprice_observed_data()
   #   geom_line(data = , aes(x=datetime, y = price), alpha = 0.3) +
   #   theme_minimal()
   
+  print("preparing boxplot")
   plt_boxplot_per_year <- future_prices %>% ggplot(aes(x=factor(year), y = price)) + geom_boxplot()+
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
@@ -650,48 +596,48 @@ my_elprice <- function(df = my_data_read_elprice_observed_data()
   #              +          y = "Value") +
   #   theme_minimal()
   
-  plt_heatmap <- future_prices %>%
-    group_by(year, day, hour) %>%
-    summarise(mean = mean(price, na.rm = TRUE), .groups = "drop") %>%
-    ggplot(aes(x = hour, y = day, fill = mean)) +
-    geom_tile() +
-    facet_wrap(~year) +
-    scale_fill_gradient(low = "blue", high = "red") +
-    labs(title = "Heatmap of Avg Hourly Price by Day of Year",
-         x = "Hour of Day",
-         y = "Day of Year",
-         fill = "Mean Price") +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
-    theme_minimal()
+  # print("preparing heatmap")
+  # plt_heatmap <- future_prices %>%
+  #   group_by(year, day, hour) %>%
+  #   summarise(mean = mean(price, na.rm = TRUE), .groups = "drop") %>%
+  #   ggplot(aes(x = hour, y = day, fill = mean)) +
+  #   geom_tile() +
+  #   facet_wrap(~year) +
+  #   scale_fill_gradient(low = "blue", high = "red") +
+  #   labs(title = "Heatmap of Avg Hourly Price by Day of Year",
+  #        x = "Hour of Day",
+  #        y = "Day of Year",
+  #        fill = "Mean Price") +
+  #   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+  #   theme_minimal()
   
-    plt_monthly <- future_prices %>% mutate(year_month = format(datetime, "%Y-%m")) %>%
-      group_by(year, month, year_month) %>%
-      summarise(mean = mean(price, na.rm = TRUE)
-                , q10 = quantile(price, 0.10, na.rm = TRUE)
-                , q90 = quantile(price, 0.90, na.rm = TRUE)
-                , .groups = "drop") %>% 
-      ggplot(aes(x = month, y = mean)) +
-      geom_line(group = 1) + # group = 1 to prevent ggplot from trying to group lines
-      #geom_point() +
-      geom_ribbon(aes(ymin = q10, ymax = q90), alpha = 0.2) + # Add ribbon for quantiles
-      labs(
-        title = "Monthly Average Price",
-        x = "Year-Month",
-        y = "Price"
-      ) +
-      facet_grid(year ~ .) +
-      theme_minimal() +
-      #theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-      # x axis as integers with step 1
-      scale_x_continuous(breaks = 1:12) + 
-      # Integer y-axis labels
-      scale_y_continuous(labels = scales::number_format(accuracy = 1))
+  # print("preparing monthly chart")
+  # plt_monthly <- future_prices %>% mutate(year_month = format(datetime, "%Y-%m")) %>%
+  #     group_by(year, month, year_month) %>%
+  #     summarise(mean = mean(price, na.rm = TRUE)
+  #               , q10 = quantile(price, 0.10, na.rm = TRUE)
+  #               , q90 = quantile(price, 0.90, na.rm = TRUE)
+  #               , .groups = "drop") %>% 
+  #     ggplot(aes(x = month, y = mean)) +
+  #     geom_line(group = 1) + # group = 1 to prevent ggplot from trying to group lines
+  #     #geom_point() +
+  #     geom_ribbon(aes(ymin = q10, ymax = q90), alpha = 0.2) + # Add ribbon for quantiles
+  #     labs(
+  #       title = "Monthly Average Price",
+  #       x = "Year-Month",
+  #       y = "Price"
+  #     ) +
+  #     facet_grid(year ~ .) +
+  #     theme_minimal() +
+  #     #theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  #     # x axis as integers with step 1
+  #     scale_x_continuous(breaks = 1:12) + 
+  #     # Integer y-axis labels
+  #     scale_y_continuous(labels = scales::number_format(accuracy = 1))
     
-    
-  
-  output <- list(plot = plt_boxplot_per_year
-                 , plot_monthly = plt_monthly
-                 , plot_heatmap = plt_heatmap
+output <- list(plot = plt_boxplot_per_year
+                # , plot_monthly = plt_monthly
+                # , plot_heatmap = plt_heatmap
                  , price_data = future_prices)
   
   return(output)
@@ -782,5 +728,157 @@ my_elprice_auxDecompose <- function(path_decomposed = "_static_data/elprices_Cze
 }#endfunction my_elprice_auxDecompose
 
 
+my_elprice_linmodel_cached <- function(#df = my_data_read_elprice_observed_data()
+                                      years = 35
+                                      , startdate = '2021-01-01'
+                                      , add_intraday_variability = TRUE
+                                      , add_intraweek_variability = TRUE
+                                      , path_to_folder = "_cache/cached_linear_model_forecast/"
+                                      ) {
+  
+  future_prices_step0 <- prepare_future_timestamps(years = years, startdate = startdate)
+  enddate<- future_prices_step0$date %>% max()
+  
+  #check if required range (based on the function parameteres "years" and "startdate" ) is in the cached files; if yes, load the data from cached files, if no, do the TSLM() estimation for the required range
+  
+  #which combination
+  if (!add_intraday_variability & !add_intraweek_variability) {
+    path_to_file <- paste0(path_to_folder, "elprice_fcast_neither.Rds")
+  }
+  if (add_intraday_variability & !add_intraweek_variability) {
+    path_to_file <- paste0(path_to_folder, "elprice_fcast_intraday.Rds")
+  }
+  if (!add_intraday_variability & add_intraweek_variability) {
+    path_to_file <- paste0(path_to_folder, "elprice_fcast_intraweek.Rds")
+  }
+  if (add_intraday_variability & add_intraweek_variability) {
+      path_to_file <- paste0(path_to_folder, "elprice_fcast_both.Rds")
+  }#endif combinations
+  
+  # verify that all cache files are available, if not, create them
+  cached_files <- c(paste0(path_to_folder, "elprice_fcast_neither.Rds")
+                    , paste0(path_to_folder, "elprice_fcast_intraday.Rds")
+                    , paste0(path_to_folder, "elprice_fcast_intraweek.Rds")
+                    , paste0(path_to_folder, "elprice_fcast_both.Rds")
+                     )
+  
+  # prepare cached files, if not all present already:
+  cache_ready <- file.exists(cached_files) %>% all()
+  if (cache_ready == FALSE) {
+    df <- my_data_read_elprice_observed_data()
+    aux_future_prices_step0 <- prepare_future_timestamps(years = 35, startdate = "2020-01-01") #cache range hardcoded
+    # for "neither"
+    print("preparing elprice cache for neither option")
+    my_formula <- price ~ trend()
+    tslm_model <- df %>% as_tsibble(index = datetime) %>%
+      model(
+        ts_fit = TSLM(my_formula)
+      )
+    tmp1 <- tslm_model %>% forecast(new_data = aux_future_prices_step0 %>% as_tsibble(index = datetime)) %>%  #new_data has to be tsibble!
+      rename(price_method = .mean) %>%
+      select(-`.model`, -`price`)
+    saveRDS(tmp1, file = cached_files[1])
+    rm(tmp1, tslm_model, my_formula)
+    # for "intraday"
+    print("preparing elprice cache for intraday option")
+    my_formula <- price ~ trend() + season(period = "day")
+    tslm_model <- df %>% as_tsibble(index = datetime) %>%
+      model(
+        ts_fit = TSLM(my_formula)
+      )
+    tmp2 <- tslm_model %>% forecast(new_data = aux_future_prices_step0 %>% as_tsibble(index = datetime)) %>%  #new_data has to be tsibble!
+      rename(price_method = .mean) %>%
+      select(-`.model`, -`price`)
+    saveRDS(tmp2, file = cached_files[2])
+    rm(tmp2, tslm_model, my_formula)
+    # for "intraweek"
+    print("preparing elprice cache for intraweek option")
+    my_formula <- price ~ trend() + season(period = 168)
+    tslm_model <- df %>% as_tsibble(index = datetime) %>%
+      model(
+        ts_fit = TSLM(my_formula)
+      )
+    tmp3 <- tslm_model %>% forecast(new_data = aux_future_prices_step0 %>% as_tsibble(index = datetime)) %>%  #new_data has to be tsibble!
+      rename(price_method = .mean) %>%
+      select(-`.model`, -`price`)
+    saveRDS(tmp3, file = cached_files[3])
+    rm(tmp3, tslm_model, my_formula)
+    # for "both"
+    print("preparing elprice cache for both option")
+    my_formula <- price ~ trend() + season(period = "day") +  season(period = 168)
+    tslm_model <- df %>% as_tsibble(index = datetime) %>%
+      model(
+        ts_fit = TSLM(my_formula)
+      )
+    tmp4 <- tslm_model %>% forecast(new_data = aux_future_prices_step0 %>% as_tsibble(index = datetime)) %>%  #new_data has to be tsibble!
+      rename(price_method = .mean) %>%
+      select(-`.model`, -`price`)
+    saveRDS(tmp4, file = cached_files[4])
+    rm(tmp4, tslm_model, my_formula)
+    rm(df)
+  }#end preparation of 4 cached files
+  
+  
+  if (file.exists(path_to_file) == TRUE & 
+      #cache range hardcoded to be 2020-01-01 to 2054-12-31:
+      (startdate %>% as.Date()) >= ("2020-01-01" %>% as.Date()) &
+      enddate <= "2054-12-31" %>% as.Date()
+      ) {
+    print("loading tslm estimates from cache")
+  future_prices_step2 <- readRDS(path_to_file) %>% 
+    filter(datetime >= min(future_prices_step0$datetime) & datetime <= max(future_prices_step0$datetime))
+  } else {
+  #load historical observations of data to model on
+    print("estimating tslm from historical data on the fly")
+  df <- my_data_read_elprice_observed_data()
+  my_formula <- price ~ trend()
+  
+  if (add_intraday_variability) {
+    my_formula <- update(my_formula, . ~ . + season(period = "day"))
+  }
+  if (add_intraweek_variability) {
+    my_formula <- update(my_formula, . ~ . + season(period = 168))
+  }
+  
+  tslm_model <- df %>% as_tsibble(index = datetime) %>%
+    model(
+      ts_fit = TSLM(my_formula)
+    )
+  
+  future_prices_step2 <- tslm_model %>% forecast(new_data = future_prices_step0 %>% as_tsibble(index = datetime)) %>%  #new_data has to be tsibble!
+    rename(price_method = .mean) %>%
+    select(-`.model`, -`price`)
+  }
+  
+  return(future_prices_step2)
+  
+}#endfunction my_elprice_linmodel_cached
 
-
+prepare_future_timestamps <- function(years = 20
+                                      , startdate = '2025-01-01') {
+  
+  startdate <- my_check_date(startdate)
+  
+  startyear <- substring(startdate, 1,4) %>% as.integer()  #start_date %>% lubridate::floor_date(start_date %>% lubridate::ymd())
+  endyear <- startyear + years-1
+  
+  startdate_orig <- startdate
+  startdate <- startdate %>% as.Date() %>% with_tz(`Datetime (UTC)`, tzone = "Etc/GMT-1") 
+  enddate <- paste0(endyear, "-12-31 23:00:00") %>% ymd_hms(tz = "Etc/GMT-1")
+  
+  # create future timestamps
+  future_timestamps <- seq(from = startdate, by = "1 hour", to = enddate)
+  # create df for future (like new_data)
+  future_prices_step0 <- tibble(datetime = future_timestamps) %>%
+    mutate(
+      date = date(datetime)
+      , year = year(datetime) %>% as.integer()
+      , month = month(datetime) %>% as.integer()
+      , day = day(datetime) %>% as.integer()
+      , hour = hour(datetime) %>% as.integer()
+      , weekday = wday(datetime, week_start = 1)
+      , is_weekend = weekday %in% c(6,7)
+    )
+  print(paste0("Range from: ", head(future_prices_step0$datetime, 1), " to: ",  tail(future_prices_step0$datetime, 1) ))
+  return(future_prices_step0)
+}#endfunction prepare_future_timestamps
