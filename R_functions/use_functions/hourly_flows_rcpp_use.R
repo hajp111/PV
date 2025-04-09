@@ -14,7 +14,7 @@ system_params <- list(
   , battery_degradation = 0.01 # rate of degradation of battery (lower capacity) per year
   #
   # financial params
-  , installation_cost = 200000 # in CZK
+  , installation_cost = 220000 # in CZK
   , discount_rate = 0.03       # 3% discount rate
   , annual_maintenance_cost = 4000  # expected cost paid every year in CZK
   # date range

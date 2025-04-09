@@ -287,6 +287,7 @@ CalculateFinancials <- function(energy_flows
            , self_sufficiency_ratio =  (1 - (sum(energy_flows_w_prices$grid_import)/ sum(energy_flows_w_prices$total_demand))) %>% round(3)
            , avg_solar_capture_rate = ( sum(energy_flows_w_prices$revenue_from_feed_in) / sum(energy_flows_w_prices$grid_export) ) %>% round(2)
            , annual_savings = ( discounted_benefit / date_range_years) %>% round(0)
+           , IRR = FindIRR(hourly_energy_flows = energy_flows_w_prices, params = params) %>% round(3)
       #     , DEBUG_elcons_x_price = mean(energy_flows_w_prices$price) * elcons_saved
       #     , DEBUG_elprice = paste0("Min: ", min(energy_flows_w_prices$price) %>% round(1), " Max: ", max(energy_flows_w_prices$price) %>% round(1), " Mean: ", mean(energy_flows_w_prices$price) %>% round(1))
       #     , DEBUG_feed_in =  paste0("Min: ", min(energy_flows_w_prices$feed_in) %>% round(1), " Max: ", max(energy_flows_w_prices$feed_in) %>% round(1), " Mean: ", mean(energy_flows_w_prices$feed_in) %>% round(1))
@@ -329,6 +330,19 @@ BreakevenPrice <- function(new_fixed_val
   return(new_NPV)
 }#endfunction BreakevenPrice
 
+# breakeven discount rate
+IRR <- function(new_fixed_val
+                , hourly_energy_flows
+                , params) {
+  params$discount_rate <- new_fixed_val
+  hourly_energy_flows <- hourly_energy_flows %>% 
+    # repeat mutate to reflect the new price
+    CalculateFinancials_auxMutate(params = params)
+  
+  new_NPV <- sum(hourly_energy_flows$discounted_benefit) - params$installation_cost
+  return(new_NPV)
+}#endfunction BreakevenPrice
+
 # auxiliary function to provide closure (to pass more than one parameter)
 FindBreakevenFeedIn <- function(hourly_energy_flows, params) {
   print("running FindBreakevenFeedIn()")
@@ -338,8 +352,14 @@ FindBreakevenFeedIn <- function(hourly_energy_flows, params) {
   }
   
   #use uniroot with closure
-  result <- uniroot(BreakevenFeedIn_fixed, lower = -1*10^3, upper = 10^4)
-  return(result$root)  # Return the root directly
+  result <- try(uniroot(BreakevenFeedIn_fixed, lower = -1*10^3, upper = 10^4))
+  if (inherits(result, "try-error")) {
+    root <- NA
+    message("Root finding for feed-in tarriff failed: ", result)
+  } else {
+    root <- result$root
+  }
+  return(root)  # Return the root directly
 }#endfunction FindBreakevenFeedIn
 
 # auxiliary function to provide closure (to pass more than one parameter)
@@ -351,8 +371,34 @@ FindBreakevenPrice <- function(hourly_energy_flows, params) {
   }
 
   #use uniroot with closure
-  result <- uniroot(BreakevenPrice_fixed, lower = -1*10^3, upper = 10^4)
-  return(result$root)  # Return the root directly
+  result <- try(uniroot(BreakevenPrice_fixed, lower = -1*10^3, upper = 10^4))
+  if (inherits(result, "try-error")) {
+    root <- NA
+    message("Root finding for breakeven el. price failed: ", result)
+  } else {
+    root <- result$root
+  }
+  
+  return(root)  # Return the root directly
+}#endfunction FindBreakevenPrice
+
+# auxiliary function to provide closure (to pass more than one parameter)
+FindIRR <- function(hourly_energy_flows, params) {
+  print("running FindIRR()")
+  # closure to allow uniroot to read energy_flows and system_params
+  IRR_fixed <- function(new_fixed_val) {
+    IRR(new_fixed_val, hourly_energy_flows, params)
+  }
+  
+  #use uniroot with closure
+  result <- try(uniroot(IRR_fixed, lower = -1*10^1, upper = 10^1))
+  if (inherits(result, "try-error")) {
+    root <- NA
+    message("Root finding for IRR failed: ", result)
+  } else {
+    root <- result$root
+  }
+  return(root)  # Return the root directly
 }#endfunction FindBreakevenPrice
 
 

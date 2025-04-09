@@ -731,6 +731,7 @@ server <- function(input, output, session) {
                , self_sufficiency_ratio
                , avg_solar_capture_rate
                , annual_savings
+               , IRR
       ) 
       #when adding new measures, REMEMBER TO ALSO add them to the table where they are RENAMED (see BELOW in renderTable)
       
@@ -750,10 +751,10 @@ server <- function(input, output, session) {
           ),
          column(3,
           div(class = "metric-card",
-            h4(i18n$t("Annualized rate of return"), 
+            h4(i18n$t("Internal Rate of Return"), 
              icon("percent"),
              div(class = "metric-value",
-             scales::percent(transpose_this$annualized_rate_of_return[[1]], accuracy = 1.0)
+             scales::percent(transpose_this$IRR[[1]], accuracy = 1.0)
                )
               )
              )
@@ -785,6 +786,9 @@ server <- function(input, output, session) {
         renderTable({ 
          #show this as a table:
          transpose_this %>% 
+           # values that are in percent to be shown as %
+           mutate(annualized_rate_of_return = annualized_rate_of_return %>% scales::percent(accuracy = 0.1)
+                  , IRR = IRR %>% scales::percent(accuracy = 0.1)) %>%
            rename(
               "Date range" = date_range
               , "Discounted benefit (CZK)" = discounted_benefit
@@ -792,7 +796,7 @@ server <- function(input, output, session) {
               , "Total electricity generated (kWh)" = total_electricity_generated
               , "Present value of Total Cost (CZK)" = Present_Value_total_cost
               , "Levelized Cost of Electricity (CZK/kWh)" = LCOE
-              , "Annualized rate of return" = annualized_rate_of_return
+              , "Annualized Rate of Return" = annualized_rate_of_return
               , "Break-even feed-in tariff (CZK/kWh)" = breakeven_feedin
               , "Break-even price (CZK/kWh)" = breakeven_price
               , "Payback Period (years)" = payback_period
@@ -800,6 +804,7 @@ server <- function(input, output, session) {
               , "Self-Sufficiency Ratio" = self_sufficiency_ratio
               , "Average Solar Capture Rate (CZK/kWh)" = avg_solar_capture_rate
               , "Annual Savings (CZK)" = annual_savings
+              , "Internal Rate of Return (%)" = IRR
             ) %>%
            setNames(., sapply(names(.), function(x) i18n$t(x))) %>% 
            mutate(across(everything(), as.character)) %>%
