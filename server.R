@@ -109,7 +109,7 @@ server <- function(input, output, session) {
                            numericInput("battery_max_soc", i18n$t("Max SOC (%)"), min = 0, max = 100, step = 1, value = if (!is.null(system_params()$battery_max_soc)) system_params()$battery_max_soc*100 else 100),
                            helpText(i18n$t("Maximum state of charge (100% = full capacity)")),
                            #degradation of 1.1% annualy corresponds to decrease to 80% in 20 years
-                           numericInput("battery_degradation", i18n$t("Degradation Rate/year"), min = 0, max = 1, step = 0.01, value = if (!is.null(system_params()$battery_degradation)) system_params()$battery_degradation else 0.01),
+                           numericInput("battery_degradation", i18n$t("Degradation Rate/year"), min = 0, max = 1, step = 0.01, value = if (!is.null(system_params()$battery_degradation)) system_params()$battery_degradation else 0.011),
                            helpText(i18n$t("Annual battery capacity degradation rate (decimal, e.g., 0.01 = 1%)")),
                            helpText(i18n$t("Degredation to 80% in 20 years corresponds to about 1.1% annual degredation rate"))
                   ),
@@ -132,15 +132,15 @@ server <- function(input, output, session) {
                   ),
                   
                   tabPanel(i18n$t("Household"), value = "householdTab",
-                           numericInput("HH_annual_consumption", i18n$t("Annual Consumption (MWh)"), min = 0, step = 0.1, value = if (!is.null(system_params()$HH_annual_consumption)) system_params()$HH_annual_consumption else 3),
+                           numericInput("HH_annual_consumption", i18n$t("Annual Consumption (MWh)"), min = 0, step = 0.1, value = if (!is.null(system_params()$HH_annual_consumption)) system_params()$HH_annual_consumption else 3.5),
                            numericInput("HH_add_cons_noise", i18n$t("Consumption Noise Multiplier"), min = 0, step = 0.1, value = if (!is.null(system_params()$HH_add_cons_noise)) system_params()$HH_add_cons_noise else 0.8),
                            helpText(i18n$t("Adds random variation to consumption (0.2 means ±20% variation)"))
                   ),
                   
                   tabPanel(i18n$t("Financials"), value = "financialsTab",
                            numericInput("installation_cost", i18n$t("Installation Cost (CZK)"), min = 0, value = if (!is.null(system_params()$installation_cost)) system_params()$installation_cost else 220000),
-                           numericInput("annual_maintenance_cost", i18n$t("Annual Maintenance (CZK)"), min = 0, value = if (!is.null(system_params()$annual_maintenance_cost)) system_params()$annual_maintenance_cost else 4000),
-                           numericInput("discount_rate", i18n$t("Discount Rate"), min = 0, max = 100, step = 0.1, value = if (!is.null(system_params()$discount_rate)) system_params()$discount_rate*100 else 3),
+                           numericInput("annual_maintenance_cost", i18n$t("Annual Maintenance (CZK)"), min = 0, value = if (!is.null(system_params()$annual_maintenance_cost)) system_params()$annual_maintenance_cost else 2000),
+                           numericInput("discount_rate", i18n$t("Discount Rate"), min = 0, max = 100, step = 0.1, value = if (!is.null(system_params()$discount_rate)) system_params()$discount_rate*100 else 5),
                            helpText(i18n$t("Annual discount rate for NPV calculations (e.g. 3.5 means 3.5 %)"))
                   ),
                   
@@ -157,7 +157,7 @@ server <- function(input, output, session) {
                            
                            conditionalPanel(
                              condition = "['last_w_growth', 'random_walk_trend'].includes(input.elprice_method)",
-                             numericInput(inputId = "elprice_lastval", i18n$t("Provided El. Price (CZK/kWh) to apply"), step = 0.1, value = if (!is.null(system_params()$elprice_lastval)) system_params()$elprice_lastval else 3.5),
+                             numericInput(inputId = "elprice_lastval", i18n$t("Provided El. Price (CZK/kWh) to apply"), step = 0.1, value = if (!is.null(system_params()$elprice_lastval)) system_params()$elprice_lastval else 4.5),
                              helpText(i18n$t("Electricity price to apply the growth rate to"))
                            ),
                            conditionalPanel(
@@ -224,7 +224,7 @@ server <- function(input, output, session) {
                   },
                   if (calculations_done()) {
                     tabPanel(i18n$t("Results - Annual Values"), value = "resultsAnnualTab",
-                             h3(i18n$t("Financial Summary")),
+                             h3(i18n$t("Annual Summary")),
                              tableOutput("annual_table"),
                     )
                   },
@@ -271,7 +271,7 @@ server <- function(input, output, session) {
     output$map <- renderLeaflet({
         leaflet() %>%
             addTiles() %>%
-            setView(lng = 16.998, lat = 49.278, zoom = 8)
+            setView(lng = 14.440485, lat = 50.082765, zoom = 8)
     })
     
     #set marker in map

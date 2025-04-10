@@ -2,15 +2,15 @@ source("R_functions/read_irradiance_api.R")
 print("this is read_irradiance_api_use.R file")
 
 # API only works for range 2005 - 2023, ranges beyond API are generated from existing years
-solar <- getSolarData(lat =  49.278
-                             , lon = 16.998
+solar <- getSolarData(lat =  49.277780 
+                             , lon = 17.013359
                              , start_date = '2002-01-01'
-                             , system_lifetime = 30
+                             , system_lifetime = 23
                              , loss = 14  # in percent
-                             , angle = 30 # Inclination angle (0° = horizontal)
-                             , aspect = 0 # Azimuth angle (0° = South, 90° = West)
+                             , angle = 40 # Inclination angle (0° = horizontal)
+                             , aspect = 50 # Azimuth angle (0° = South, 90° = West)
                              , peakpower = 4.5 #in kWp
-                             , add_PV_noise = 0.2 # multiplier of the original used to add some noise to the P values (0.2 means some value from 0.8P to 1.2P)
+                             , add_PV_noise = 0.0 # multiplier of the original used to add some noise to the P values (0.2 means some value from 0.8P to 1.2P)
                              , fixed_seed = FALSE 
                              ) 
 
