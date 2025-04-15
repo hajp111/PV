@@ -122,7 +122,7 @@ server <- function(input, output, session) {
                            helpText(i18n$t("Panel inclination (0° = horizontal, 90° = vertical)")),
                            numericInput("PV_aspect", i18n$t("Azimuth Angle"), min = -180, max = 180, value = if (!is.null(system_params()$PV_aspect)) system_params()$PV_aspect else 0),
                            helpText(i18n$t("Panel orientation (0° = South, 90° = West, -90° = East)")),
-                           numericInput("PV_degradation", i18n$t("Degradation Rate/year"),  min = 0, max = 1, step = 0.01, value = if (!is.null(system_params()$PV_degradation)) system_params()$PV_degradation else 0.01),
+                           numericInput("PV_degradation", i18n$t("Degradation Rate/year"),  min = 0, max = 1, step = 0.01, value = if (!is.null(system_params()$PV_degradation)) system_params()$PV_degradation else 0.011),
                            helpText(i18n$t("Annual PV panel degradation rate (decimal, e.g., 0.01 = 1%)")),
                            helpText(i18n$t("Degredation to 80% in 20 years corresponds to about 1.1% annual degredation rate")),
                            numericInput("PV_system_own_consumption", i18n$t("System Consumption (kWh/h)"), min = 0, step = 0.01, value = if (!is.null(system_params()$PV_system_own_consumption)) system_params()$PV_system_own_consumption else 0.03),
@@ -139,7 +139,7 @@ server <- function(input, output, session) {
                   
                   tabPanel(i18n$t("Financials"), value = "financialsTab",
                            numericInput("installation_cost", i18n$t("Installation Cost (CZK)"), min = 0, value = if (!is.null(system_params()$installation_cost)) system_params()$installation_cost else 220000),
-                           numericInput("annual_maintenance_cost", i18n$t("Annual Maintenance (CZK)"), min = 0, value = if (!is.null(system_params()$annual_maintenance_cost)) system_params()$annual_maintenance_cost else 2000),
+                           numericInput("annual_maintenance_cost", i18n$t("Annual Maintenance (CZK)"), min = 0, value = if (!is.null(system_params()$annual_maintenance_cost)) system_params()$annual_maintenance_cost else 5000),
                            numericInput("discount_rate", i18n$t("Discount Rate"), min = 0, max = 100, step = 0.1, value = if (!is.null(system_params()$discount_rate)) system_params()$discount_rate*100 else 5),
                            helpText(i18n$t("Annual discount rate for NPV calculations (e.g. 3.5 means 3.5 %)"))
                   ),
@@ -211,7 +211,8 @@ server <- function(input, output, session) {
                            plotlyOutput("solarPlot"),
                            plotlyOutput("gridCostPlot"),
                            plotlyOutput("feedInPlot"),
-                           plotlyOutput("elpricePlot")
+                           plotlyOutput("elpricePlotBoxplot")
+                           #plotlyOutput("elpricePlot")
                   )},
                   if (calculations_done()) {
                   tabPanel(i18n$t("Results"), value = "resultsTab",
@@ -738,6 +739,9 @@ server <- function(input, output, session) {
                , avg_solar_capture_rate
                , annual_savings
                , IRR
+               , avg_el_price
+               #, median_el_price 
+               , avg_grid_cost 
       ) 
       #when adding new measures, REMEMBER TO ALSO add them to the table where they are RENAMED (see BELOW in renderTable)
       
@@ -811,6 +815,8 @@ server <- function(input, output, session) {
               , "Average Solar Capture Rate (CZK/kWh)" = avg_solar_capture_rate
               , "Annual Savings (CZK)" = annual_savings
               , "Internal Rate of Return (%)" = IRR
+              , "Average Electricity Price (CZK/kWh)" = avg_el_price
+              , "Average Grid Cost (CZK/kWh)" = avg_grid_cost 
             ) %>%
            setNames(., sapply(names(.), function(x) i18n$t(x))) %>% 
            mutate(across(everything(), as.character)) %>%
@@ -988,8 +994,11 @@ server <- function(input, output, session) {
       final_results()$df_hourly %>%
         group_by(date, year) %>% 
         summarize(cons_kWh = sum(cons_kWh), .groups = "drop") %>%
-        plot_ly(x = ~date, y = ~cons_kWh, type = 'scatter', mode = 'lines',
-                line = list(color = 'rgba(0, 0, 0, 0.5)')) %>%
+        plot_ly(x = ~date
+                , y = ~cons_kWh
+                , type = 'scatter'
+                , mode = 'lines'
+                , line = list(color = 'rgba(0, 0, 0, 0.5)')) %>%
         layout(
           title = list(text = i18n$t("Household Consumption"), x = 0.5), 
           yaxis = list(title = i18n$t("kWh"), range = c(0, NA), zeroline = TRUE),
@@ -1003,18 +1012,18 @@ server <- function(input, output, session) {
          shiny::req( final_results()$df_hourly )
          
       final_results()$df_hourly %>%
-        group_by(date, year, month, day, weekday, is_weekend) %>% 
+        group_by(date) %>% 
         summarize(PV_available = sum(PV_available, na.rm = TRUE), .groups = "drop") %>%
         plot_ly(
-          x = ~date, 
-          y = ~PV_available, 
-          type = 'scatter', 
-          mode = 'lines',
-          line = list(color = 'rgba(0, 0, 0, 0.5)')  # semi-transparent line
+          x = ~date
+          , y = ~PV_available 
+          , type = 'scatter'
+          , mode = 'lines'
+          , line = list(color = 'rgba(0, 0, 0, 0.5)')  # semi-transparent line
         ) %>%
         layout(
           title = list(text = i18n$t("Available Solar Power"), x = 0.5),  # optional title
-          yaxis = list(title = i18n$t("kWh"), range = c(0, NA), zeroline = TRUE),
+          yaxis = list(title = i18n$t("kWh"), rangemode = "tozero", zeroline = TRUE),
           xaxis = list(title = i18n$t("Date")),
           plot_bgcolor = "#FFFFFF",
           paper_bgcolor = "#FFFFFF"
@@ -1030,17 +1039,17 @@ server <- function(input, output, session) {
         group_by(year) %>% 
         summarize(grid_cost = mean(grid_cost, na.rm = TRUE), .groups = "drop") %>%
         plot_ly(
-          x = ~year, 
-          y = ~grid_cost, 
-          type = 'scatter', 
-          mode = 'lines',
-          line = list(color = 'rgba(0, 0, 0, 0.5)')  # match ggplot alpha = 0.5
+          x = ~year 
+          , y = ~grid_cost
+          , type = 'scatter' 
+          , mode = 'lines'
+          , line = list(color = 'rgba(0, 0, 0, 0.5)')  # match ggplot alpha = 0.5
         ) %>%
         layout(
           title = list(text = i18n$t("Grid Cost"), x = 0.5),
-          yaxis = list(title = i18n$t("Grid Cost"), range = c(0, NA), zeroline = TRUE),
+          yaxis = list(title = i18n$t("CZK/kWh"), rangemode = "tozero", zeroline = TRUE),
           xaxis = list(
-            title = i18n$t("Year"),
+            title = i18n$t("Date"),
             tickmode = "linear",  
             tickformat = "%d",     # format ticks as integers 
             dtick = 1              # interval between ticks
@@ -1057,17 +1066,17 @@ server <- function(input, output, session) {
         group_by(year) %>% 
         summarize(feed_in = mean(feed_in, na.rm = TRUE), .groups = "drop") %>%
         plot_ly(
-          x = ~year, 
-          y = ~feed_in, 
-          type = 'scatter', 
-          mode = 'lines',
-          line = list(color = 'rgba(0, 0, 0, 0.5)')  # semi-transparent like alpha=0.5
+          x = ~year
+          , y = ~feed_in
+          , type = 'scatter'
+          , mode = 'lines'
+          , line = list(color = 'rgba(0, 0, 0, 0.5)')  # semi-transparent like alpha=0.5
         ) %>%
         layout(
           title = list(text = i18n$t("Average Feed-In per Year"), x = 0.5),
-          yaxis = list(title = i18n$t("Feed-In"), range = c(0, NA), zeroline = TRUE),
+          yaxis = list(title = i18n$t("CZK/kWh"), rangemode = "tozero", zeroline = TRUE),
           xaxis = list(
-            title = i18n$t("Year"),
+            title = i18n$t("Date"),
             tickmode = "linear",  
             tickformat = "%d",     # format ticks as integers 
             dtick = 1              # interval between ticks
@@ -1077,7 +1086,7 @@ server <- function(input, output, session) {
         )
     })
     
-    output$elpricePlot <- renderPlotly({
+    output$elpricePlotBoxplot <- renderPlotly({
       shiny::req( final_results()$df_hourly)
       
       # final_results()$df_hourly %>%
@@ -1096,9 +1105,9 @@ server <- function(input, output, session) {
       
       final_results()$df_hourly %>%
         plot_ly(
-          x = ~factor(year), 
-          y = ~price, 
-          type = "box"
+          x = ~factor(year)
+          , y = ~price
+          , type = "box"
         ) %>%
         layout(
           title = list(text =  i18n$t("Electricity Price per Year"), x = 0.5),
@@ -1109,6 +1118,33 @@ server <- function(input, output, session) {
         )
     })
     
+    # output$elpricePlot <- renderPlotly({
+    #   shiny::req( final_results()$df_hourly)
+    #   
+    #   final_results()$df_hourly %>%
+    #     tail(24*30*2) %>%
+    #     #group_by(year) %>% 
+    #     #summarize(price = mean(price, na.rm = TRUE), .groups = "drop") %>%
+    #     plot_ly(
+    #       x = ~datetime
+    #       , y = ~price
+    #       , type = 'scatter'
+    #       , mode = 'lines'
+    #       , line = list(color = 'rgba(0, 0, 0, 0.5)')  # semi-transparent like alpha=0.5
+    #     ) %>%
+    #     layout(
+    #       title = list(text = i18n$t("Electricity Price (2 month tail of data range)"), x = 0.5),
+    #       yaxis = list(title = i18n$t("CZK/kWh"), rangemode = "tozero", zeroline = TRUE),
+    #       xaxis = list(
+    #         title = i18n$t("Date"),
+    #         tickmode = "linear",  
+    #         tickformat = "%d",     # format ticks as integers 
+    #         dtick = 1              # interval between ticks
+    #       ),
+    #       plot_bgcolor = "#FFFFFF",
+    #       paper_bgcolor = "#FFFFFF"
+    #     )
+    # })
     
     #DEBUG 
     # observeEvent(input$testSwitch, {

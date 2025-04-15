@@ -349,6 +349,7 @@ my_elprice <- function(df = my_data_read_elprice_observed_data()
                        , lastval
                        , selected_year = 2023
                        , add_random_noise = 0  # multiplier of the original used to add some noise to the price values (0.2 means some value from 0.8*price to 1.2*price)
+                       , variability_scale = 1 # multiplier for the intraday/intraweek variability (to make it more pronounced)
 ) {
   print(paste0("My el. price started"))
   #check for method
@@ -527,7 +528,7 @@ my_elprice <- function(df = my_data_read_elprice_observed_data()
       # uniform distribution between quantiles, not so great
       #mutate(generated_hour_component = map_dbl(1:n(), ~ runif(1, min = quantile_025[.x], max = quantile_975[.x])))
       # use piecewise linear and more narrow (10% CI)
-      mutate(generated_hour_component = map_dbl(1:n(), function(.x) {
+      mutate(generated_hour_component = variability_scale * map_dbl(1:n(), function(.x) {
         runif(1, min = season_day_250[.x], max = season_day_750[.x])
       })
       ) %>% 
@@ -547,7 +548,7 @@ my_elprice <- function(df = my_data_read_elprice_observed_data()
       # uniform distribution between quantiles, not so great
       #mutate(generated_hour_component = map_dbl(1:n(), ~ runif(1, min = quantile_025[.x], max = quantile_975[.x])))
       # use piecewise linear and more narrow (10% CI)
-      mutate(generated_week_component = map_dbl(1:n(), function(.x) {
+      mutate(generated_week_component = variability_scale * map_dbl(1:n(), function(.x) {
         runif(1, min = season_week_250[.x], max = season_week_750[.x])
       })
       ) %>% 

@@ -288,6 +288,9 @@ CalculateFinancials <- function(energy_flows
            , avg_solar_capture_rate = ( sum(energy_flows_w_prices$revenue_from_feed_in) / sum(energy_flows_w_prices$grid_export) ) %>% round(2)
            , annual_savings = ( discounted_benefit / date_range_years) %>% round(0)
            , IRR = FindIRR(hourly_energy_flows = energy_flows_w_prices, params = params) %>% round(3)
+           , avg_el_price = mean(energy_flows_w_prices$price) %>% round(2)
+           #, median_el_price = median(energy_flows_w_prices$revenue_from_feed_in) %>% round(2)
+           , avg_grid_cost = mean(energy_flows_w_prices$grid_cost) %>% round(2)
       #     , DEBUG_elcons_x_price = mean(energy_flows_w_prices$price) * elcons_saved
       #     , DEBUG_elprice = paste0("Min: ", min(energy_flows_w_prices$price) %>% round(1), " Max: ", max(energy_flows_w_prices$price) %>% round(1), " Mean: ", mean(energy_flows_w_prices$price) %>% round(1))
       #     , DEBUG_feed_in =  paste0("Min: ", min(energy_flows_w_prices$feed_in) %>% round(1), " Max: ", max(energy_flows_w_prices$feed_in) %>% round(1), " Mean: ", mean(energy_flows_w_prices$feed_in) %>% round(1))

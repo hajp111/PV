@@ -31,10 +31,10 @@ soldata1_daily <- soldata1 %>% group_by(year, month, day, date, day_of_year) %>%
   
 soldata1_by_dayofyear <- soldata1_daily %>% 
   filter(day_of_year <= 365) %>%
-  group_by(day_of_year) %>% summarize( P_mean = mean(P_kWh, na.rm = TRUE)
-                                                                        , P_q10 = quantile(P_kWh, 0.1)
-                                                                        , P_q50 = quantile(P_kWh, 0.5)
-                                                                        , P_q90 = quantile(P_kWh, 0.9))
+  group_by(day_of_year) %>% summarize(P_mean = mean(P_kWh, na.rm = TRUE)
+                                      , P_q10 = quantile(P_kWh, 0.1)
+                                      , P_q50 = quantile(P_kWh, 0.5)
+                                      , P_q90 = quantile(P_kWh, 0.9))
 
 
 soldata1_by_dayofyear %>% ggplot() +
@@ -98,3 +98,16 @@ fve_with_expected %>% ggplot() +
 theme_minimal()
 
 my_ggsave("../grafy_atp/solar/02_actual_vs_expected_solar_by_dayofyear.png")
+
+#RMSE
+rmse <- fve_with_expected %>% 
+  filter(P_kWh %>% is.na() == FALSE & P_kWh>0) %>%
+  summarise(
+    stdev_data = sd(P_kWh, na.rm = TRUE)
+    , mean_data = mean(P_kWh, na.rm = TRUE)
+    , RMSE = sqrt(mean((P_kWh - P_mean)^2, na.rm = TRUE))
+    , MAE = mean(abs(P_kWh - P_mean), na.rm = TRUE)
+    , MAPE = mean(abs((P_kWh - P_mean) / P_kWh), na.rm = TRUE) * 100
+    , RMSE_baseline <- sqrt(mean((P_kWh - mean_data)^2, na.rm = TRUE))
+  )
+print(rmse)

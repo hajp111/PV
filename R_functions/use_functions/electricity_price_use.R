@@ -68,6 +68,26 @@ my_ggsave("../grafy_atp/elprice/cross_country/02_prices_2024_02_multicountry_dai
 
 # actual observed prices
 elprice_czk <- my_data_read_elprice_observed_data(multiply_wholesale_by = 1.0)
+elprice_czk %>%
+  tail(24 * 3 * 30) %>%
+  mutate(
+    negative_price = price < 0
+    , price_above_threshold = price > (mean(price) + 3 * sd(price))
+    , highlighted_price = ifelse(negative_price | price_above_threshold, yes = price, no = NA )
+  ) %>%
+  ggplot() +
+  geom_line(aes(x = datetime, y = price)) +
+  geom_point(data = . %>% filter(negative_price | price_above_threshold), aes(x = datetime, y = highlighted_price), color = "red") +
+  ggrepel::geom_text_repel(data = . %>% filter(negative_price | price_above_threshold)
+                           , aes(x = datetime, y = highlighted_price, label = hour), color = "red"
+                           , max.overlaps = 20) +
+  theme_minimal() +
+  labs(
+    title = "Electricity prices (hourly) in Czechia in Sep-Nov 2024",
+    x = "Date",
+    y = "CZK / kWh"
+  )
+my_ggsave("../grafy_atp/elprice/10_prices_2024_last3month.png")
 
 # read distribution_costs - actual observation data - from file
 distribution_costs <- my_data_read_distrib_costs_observed_data()

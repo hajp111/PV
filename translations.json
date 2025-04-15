@@ -34,6 +34,7 @@
  { "en": "Financial Summary", "cs": "Finanční souhrn" },
  
  { "en": "Results - Annual Values", "cs": "Výsledky po letech" },
+ { "en": "Annual Summary", "cs": "Shrnutí v jednotlivých letech" },
  { "en": "Results - Charts", "cs": "Výsledky - grafy" },
  { "en": "Plot shows electricity price, grid cost and feed-in tariff for the selected date", "cs": "Graf zachycuje cenu elektřiny, distribuční náklady a výkupní cenu pro zvolené datum" },
  
@@ -141,8 +142,9 @@
  { "en": "Annual Savings", "cs": "Průměrná roční úspora nákladů" },
  { "en": "Internal Rate of Return (%)", "cs": "Vnitřní výnosové procento (%)" },
  { "en": "Internal Rate of Return", "cs": "Vnitřní výnosové procento" },
- 
- 
+ { "en": "Average Electricity Price (CZK/kWh)", "cs": "Průměrná cena elektřiny (CZK/kWh)"},
+ { "en": "Average Grid Cost (CZK/kWh)", "cs": "Průměrné distribuční náklady (CZK/kWh)" },
+
  { "en": "Key Metrics", "cs": "Klíčové metriky" },
  
  { "en": "Energy data loaded successfully", "cs": "Data energií úspěšně načtena" },
@@ -189,6 +191,7 @@
  { "en": "Feed-in Tariff (CZK)", "cs": "Výkupní cena (CZK)" },
  { "en": "Average Feed-In per Year", "cs": "Průměrná roční výkupní cena" },
  { "en": "Electricity Price per Year", "cs": "Cena elektřiny v letech" },
+ { "en": "Electricity Price (2 month tail of data range)", "cs": "Cena elektřiny (poslední 2 měsíce v rozsahu dat)" },
  { "en": "Prices (Hourly)", "cs": "Ceny (hodinově)" },
  { "en": "Prices", "cs": "Ceny" },
  { "en": "Price", "cs": "Cena" },

@@ -17,7 +17,7 @@ standardlastprofile::slp_info("H0")
 
 elcons <- get_load_data(start_date = "2024-01-01"
               , system_lifetime = 20
-              , annual_consumption = 2.8
+              , annual_consumption = 3.5
               , fixed_seed = TRUE 
               , add_HH_cons_noise = 0 
 )
@@ -42,14 +42,14 @@ saveRDS(elcons, file = "_cache/elcons_data.Rds")
 ###-- generate charts for the methodology
 H0_2024_hourly <- get_load_data(start_date = "2024-01-01"
                                 , system_lifetime = 5
-                                , annual_consumption = 3.0
+                                , annual_consumption = 3
                                 , fixed_seed = TRUE 
                                 , add_HH_cons_noise = 0.0
                                 )
 
 H0_2024_hourly_w_noise <- get_load_data(start_date = "2024-01-01"
                                 , system_lifetime = 5
-                                , annual_consumption = 3.0
+                                , annual_consumption = 3
                                 , fixed_seed = TRUE 
                                 , add_HH_cons_noise = 0.8
 )
@@ -191,3 +191,27 @@ fve_with_expected_noise %>% ggplot() +
   theme_minimal() 
 
 my_ggsave("../grafy_atp/hh_cons/03b_actual_vs_expected_w_noise_elcons_by_dayofyear.png")
+
+# how much grid_import and grid_export per year (aggregate for day of year and then sum up)
+fve_with_expected_noise %>% ungroup() %>% group_by(day_of_year) %>%
+  summarize(actual_cons = cons_kWh %>% mean(na.rm = TRUE)
+   , expected_cons =  cons_kWh_expected %>% mean(na.rm = TRUE)
+   , grid_import = (`odber Wh (ze site)` / 10^3) %>%  mean(na.rm = TRUE)
+   , grid_export = (`dodavka (sit)` / 10^3) %>% mean(na.rm = TRUE)
+) %>%
+  ungroup() %>%
+  summarize(actual_cons = actual_cons %>% sum(na.rm = TRUE)
+            , expected_cons = expected_cons %>% sum(na.rm = TRUE)
+            , grid_import = grid_import %>% sum(na.rm = TRUE)
+            , grid_export = grid_export %>% sum(na.rm = TRUE))
+#RMSE
+rmse <- fve_with_expected_noise %>% 
+  summarise(
+    stdev_data = sd(cons_kWh, na.rm = TRUE)
+   , mean_data = mean(cons_kWh, na.rm = TRUE)
+   , RMSE = sqrt(mean((cons_kWh - cons_kWh_expected)^2, na.rm = TRUE))
+   , MAE = mean(abs(cons_kWh - cons_kWh_expected), na.rm = TRUE)
+   , MAPE = mean(abs((cons_kWh - cons_kWh_expected) / cons_kWh), na.rm = TRUE) * 100
+   , RMSE_baseline <- sqrt(mean((cons_kWh - mean_data)^2, na.rm = TRUE))
+  )
+print(rmse)
