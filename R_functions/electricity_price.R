@@ -883,3 +883,7 @@ prepare_future_timestamps <- function(years = 20
   print(paste0("Range from: ", head(future_prices_step0$datetime, 1), " to: ",  tail(future_prices_step0$datetime, 1) ))
   return(future_prices_step0)
 }#endfunction prepare_future_timestamps
+
+# This file is part of the PV Analyzer project
+# Copyright (c) 2025 Pavel HAJKO
+# See the license.txt file in the project root

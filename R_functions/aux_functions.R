@@ -53,3 +53,8 @@ my_ggsave <- function(filename, plot = last_plot()
   ggsave(filename, plot = plot, width = width, height = height
          , units = units, dpi = dpi, bg = bg, device = "png", create.dir = TRUE, ...) # Device set to "png"
 }#endfunction my_ggsave
+
+
+# This file is part of the PV Analyzer project
+# Copyright (c) 2025 Pavel HAJKO
+# See the license.txt file in the project root

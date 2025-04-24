@@ -1,3 +1,5 @@
+# this file is not necessary for the functioning of PV Analyzer, it is used to inspect the functions and their output
+
 source("R_functions/hourly_flows_rcpp.R")
 
 system_params <- list(
@@ -230,3 +232,8 @@ enflows_grp_day <- energy_flows_enh$df_hourly %>% group_by(date) %>%
             , feed_in = feed_in %>% mean(na.rm = TRUE)
              )
 plotPrices("2024-07-10", range = 500, enflows_grp_day, params = system_params)
+
+
+# This file is part of the PV Analyzer project
+# Copyright (c) 2025 Pavel HAJKO
+# See the license.txt file in the project root

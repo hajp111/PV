@@ -1,5 +1,5 @@
 ####  ui.R
-# This is the user-interface definition of a Shiny web application. You can run the application by clicking 'Run App' above.
+# This is the user-interface definition of PV Analyzer, a Shiny web application. If you are using RStudio, you can run the application by clicking the button 'Run App' shown in top right corner
 library(shiny)
 library(leaflet)
 library(shinythemes)
@@ -98,3 +98,7 @@ ui <- fluidPage(
         
     )
 )#end fluidPage
+
+# This file is part of the PV Analyzer project
+# Copyright (c) 2025 Pavel HAJKO
+# See the license.txt file in the project root

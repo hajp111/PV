@@ -1,3 +1,5 @@
+# this file is not necessary for the functioning of PV Analyzer, it is used to inspect the functions and their output
+
 source("R_functions/read_irradiance_api.R")
 print("this is read_irradiance_api_use.R file")
 
@@ -111,3 +113,8 @@ rmse <- fve_with_expected %>%
     , RMSE_baseline <- sqrt(mean((P_kWh - mean_data)^2, na.rm = TRUE))
   )
 print(rmse)
+
+
+# This file is part of the PV Analyzer project
+# Copyright (c) 2025 Pavel HAJKO
+# See the license.txt file in the project root

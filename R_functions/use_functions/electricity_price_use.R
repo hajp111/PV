@@ -1,8 +1,9 @@
+# this file is not necessary for the functioning of PV Analyzer, it is used to inspect the functions and their output
+
 source("R_functions/electricity_price.R")
 library(ggrepel)
 print("this is electricity_price_use.R file")
 
-#TODO convert plots to a function
 plot_charts <- TRUE
 
 
@@ -764,3 +765,7 @@ elpr %>% filter(year == 2044 & month %in% c(1:7) ) %>% ggplot() +
   scale_color_manual(values = color_mapping1) +
   theme_minimal()
   
+
+# This file is part of the PV Analyzer project
+# Copyright (c) 2025 Pavel HAJKO
+# See the license.txt file in the project root

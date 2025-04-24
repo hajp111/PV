@@ -236,3 +236,7 @@ if (file.exists("_cache/solar_data_backup/unavailable_API_example_data.Rds") == 
   # solar_data <- readRDS(solar_data_cache_file_path)
   
 }#
+
+# This file is part of the PV Analyzer project
+# Copyright (c) 2025 Pavel HAJKO
+# See the license.txt file in the project root

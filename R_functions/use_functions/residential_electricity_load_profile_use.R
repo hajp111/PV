@@ -1,3 +1,5 @@
+# this file is not necessary for the functioning of PV Analyzer, it is used to inspect the functions and their output
+
 source("R_functions/residential_electricity_load_profile.R")
 print("this is residential_electricity_load_profile_use.R file")
 
@@ -48,8 +50,8 @@ H0_2024_hourly <- get_load_data(start_date = "2024-01-01"
                                 )
 
 H0_2024_hourly_w_noise <- get_load_data(start_date = "2024-01-01"
-                                , system_lifetime = 5
-                                , annual_consumption = 3
+                                , system_lifetime = 20
+                                , annual_consumption = 3.0
                                 , fixed_seed = TRUE 
                                 , add_HH_cons_noise = 0.8
 )
@@ -192,6 +194,36 @@ fve_with_expected_noise %>% ggplot() +
 
 my_ggsave("../grafy_atp/hh_cons/03b_actual_vs_expected_w_noise_elcons_by_dayofyear.png")
 
+# table showing average daily grid import per month
+avg_grid_import_per_day_of_year <- fve_with_expected_noise %>% ungroup() %>% group_by(day_of_year) %>%
+  summarize(actual_cons = cons_kWh %>% mean(na.rm = TRUE)
+            , expected_cons =  cons_kWh_expected %>% mean(na.rm = TRUE)
+            , grid_import = (`odber Wh (ze site)` / 10^3) %>%  mean(na.rm = TRUE)
+            , grid_export = (`dodavka (sit)` / 10^3) %>% mean(na.rm = TRUE)
+  ) %>%
+  mutate(date = seq(as.Date(paste0(2024, "-01-01")),
+                    length.out = 364,
+                    by = "day")
+         , month = month(date)
+         , month = format(as.Date(paste0(2024, "-", month, "-01")), "%B")   
+         , month_name = format(date, "%B") %>% factor( levels = month.name)
+  )
+avg_daily_grid_import_per_month <- avg_grid_import_per_day_of_year %>% 
+  group_by(month, month_name) %>% 
+  summarize(grid_import = grid_import %>% mean(na.rm = TRUE)) 
+
+avg_daily_grid_import_per_month%>%
+  ggplot(aes(x = month_name, y = grid_import)) +
+  geom_col() +
+  labs(title = "Actual daily grid import per month"
+       , x = "Month"
+       , y = "kWh") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+my_ggsave("../grafy_atp/hh_cons/04_actual_mean_daily_grid_import.png")
+
+
+  
 # how much grid_import and grid_export per year (aggregate for day of year and then sum up)
 fve_with_expected_noise %>% ungroup() %>% group_by(day_of_year) %>%
   summarize(actual_cons = cons_kWh %>% mean(na.rm = TRUE)
@@ -215,3 +247,9 @@ rmse <- fve_with_expected_noise %>%
    , RMSE_baseline <- sqrt(mean((cons_kWh - mean_data)^2, na.rm = TRUE))
   )
 print(rmse)
+
+
+# This file is part of the PV Analyzer project
+# Copyright (c) 2025 Pavel HAJKO
+# See the license.txt file in the project root
+

@@ -552,3 +552,6 @@ plotPrices <- function(start_day, range = 5, energy_flows, params) {
     theme_minimal()
 }#endfunction plotPrices
 
+# This file is part of the PV Analyzer project
+# Copyright (c) 2025 Pavel HAJKO
+# See the license.txt file in the project root
